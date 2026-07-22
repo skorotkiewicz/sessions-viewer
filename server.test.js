@@ -3,7 +3,10 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const codex = require('./extensions/codex');
-const { contextualize, createServer, parseJsonl, summarizeRecords } = require('./server');
+const pi = require('./extensions/pi');
+const { parseJsonl } = require('./lib/jsonl');
+const { createServer } = require('./server');
+const { contextualize, summarizeRecords } = pi;
 
 const records = [
   { type: 'session', version: 3, id: 'session-id', timestamp: '2026-07-22T20:24:06.644Z', cwd: '/home/mod/Dev/demo' },
@@ -65,8 +68,11 @@ test('normalizes Codex sessions without duplicate messages or token overcounting
   assert.equal(summary.usage.totalTokens, 28);
   assert.equal(summary.toolCalls, 1);
   assert(events.some((event) => event.record.message?.content?.[0]?.text === 'Only in the event stream'));
-  assert.equal(events.find((event) => event.record.message?.role === 'toolResult').record.message.toolName, 'exec_command');
+  const toolResult = events.find((event) =>
+    event.record.message?.content?.some((item) => item.type === 'toolResult'));
+  assert.equal(toolResult.record.message.content[0].label, 'exec_command');
   assert.deepEqual(events[2].context, { provider: 'openai', model: 'gpt-test', thinking: 'xhigh' });
+  assert.equal(summary.cost.label, 'Not stored');
 });
 
 test('preserves Codex instructions, aborts, and event payloads semantically', () => {
@@ -90,7 +96,7 @@ test('preserves Codex instructions, aborts, and event payloads semantically', ()
     event.record.message?.content?.[0]?.label === 'Turn aborted');
   assert.equal(injectedAbort.record.message.content[0].tone, 'warning');
 
-  const abort = events.find((event) => event.record.type === 'turn_aborted');
+  const abort = events.find((event) => event.record.title === 'Turn aborted');
   assert.equal(abort.record.reason, 'interrupted');
   assert.equal(abort.record.durationMs, 2500);
 
@@ -103,6 +109,69 @@ test('preserves Codex instructions, aborts, and event payloads semantically', ()
   const goal = events.find((event) => event.record.variant === 'thread_goal_updated');
   assert.equal(goal.record.summary, 'Ship it');
   assert.equal(goal.record.display.details.label, 'Codex payload · 2 fields');
+});
+
+test('normalizes harness-specific records into shared viewer primitives', () => {
+  const piEvents = contextualize([
+    { type: 'session', id: 'pi-neutral', cwd: '/tmp/demo' },
+    { type: 'model_change', provider: 'openai', modelId: 'model-a' },
+    { type: 'message', message: { role: 'toolResult', toolCallId: 'call-pi', toolName: 'read', content: [{ type: 'text', text: 'file' }] } },
+    { type: 'message', message: { role: 'bashExecution', command: 'npm test', output: 'ok', exitCode: 0 } },
+  ]);
+  assert.equal(piEvents[0].record.title, 'Session started');
+  assert.equal(piEvents[1].record.title, 'Model changed');
+  assert.equal(piEvents[2].record.message.role, 'tool');
+  assert.equal(piEvents[2].record.message.content[0].type, 'toolResult');
+  assert.equal(piEvents[3].record.message.content[0].type, 'command');
+
+  const codexRecords = [
+    { type: 'session_meta', payload: { id: 'codex-neutral', model_provider: 'openai' } },
+    { type: 'response_item', payload: { type: 'agent_message', author: '/root', recipient: '/root/final_diff_review', content: [{ type: 'input_text', text: 'Message Type: NEW_TASK\nTask name: /root/final_diff_review\nSender: /root\nPayload:\nReview the diff' }], internal_chat_message_metadata_passthrough: { turn_id: 'turn-agent' } } },
+    { type: 'event_msg', payload: { type: 'patch_apply_end', call_id: 'call-patch', success: true, changes: { '/tmp/new.js': { type: 'add', content: 'console.log("ok");\n' }, '/tmp/old.js': { type: 'update', unified_diff: '@@ -1 +1 @@\n-old\n+new\n', move_path: null } } } },
+  ];
+  const codexEvents = codex.normalizeRecords(codexRecords);
+  const agent = codexEvents.find((event) => event.record.message?.role === 'agent');
+  assert.deepEqual(agent.record.message.metadata, [
+    { label: 'Message type', value: 'NEW_TASK' },
+    { label: 'Task', value: '/root/final_diff_review' },
+    { label: 'Sender', value: '/root' },
+    { label: 'Recipient', value: '/root/final_diff_review' },
+    { label: 'Turn', value: 'turn-agent' },
+  ]);
+  assert.equal(agent.record.message.content[0].text, 'Review the diff');
+  const patch = codexEvents.find((event) =>
+    event.record.message?.content?.some((item) => item.type === 'fileChange'));
+  assert.deepEqual(patch.record.message.content.map((item) => item.type), ['fileChange', 'fileChange']);
+  assert.equal(patch.record.message.content[0].content, 'console.log("ok");\n');
+  assert.match(patch.record.message.content[1].diff, /\+new/);
+});
+
+test('uses extension metadata for the default harness', async (t) => {
+  const makeExtension = (id, isDefault) => ({
+    id,
+    label: id.toUpperCase(),
+    default: isDefault,
+    defaultRoot: '/tmp',
+    async listSessions() {
+      return { sessions: [], errors: [] };
+    },
+    async loadSession({ id: sessionId }) {
+      return { summary: { id: sessionId }, events: [], parseErrors: [] };
+    },
+  });
+  const extensions = new Map([
+    ['first', makeExtension('first', false)],
+    ['chosen', makeExtension('chosen', true)],
+  ]);
+  const server = createServer({ extensions });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const base = 'http://127.0.0.1:' + server.address().port;
+
+  const list = await (await fetch(base + '/api/sessions')).json();
+  assert.equal(list.harness, 'chosen');
+  const detail = await (await fetch(base + '/api/session/session-id')).json();
+  assert.equal(detail.summary.harness, 'chosen');
 });
 
 test('serves the extension-aware viewer', async (t) => {
@@ -127,9 +196,12 @@ test('serves the extension-aware viewer', async (t) => {
   assert.match(javascript, /function renderToolResult/);
   assert.match(javascript, /function renderRecordDetails/);
   assert.doesNotMatch(javascript, /renderCodexPayload|approval_policy|permission_profile/);
+  assert.doesNotMatch(javascript, /['"](?:pi|codex)['"]/i);
+  assert.doesNotMatch(javascript, /model_change|thinking_level_change|turn_aborted|custom_message|bashExecution/);
 
   const harnesses = await (await fetch('http://127.0.0.1:' + address.port + '/api/harnesses')).json();
   assert.deepEqual(harnesses.harnesses.map((harness) => harness.id), ['codex', 'pi']);
+  assert.equal(harnesses.harnesses.find((harness) => harness.id === 'pi').default, true);
 
   const stylesheet = await fetch('http://127.0.0.1:' + address.port + '/style.css');
   assert.equal(stylesheet.status, 200);

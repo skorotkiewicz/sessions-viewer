@@ -14,6 +14,7 @@ Built-in extensions support [Pi](https://github.com/badlogic/pi-mono) and Codex.
 - Show model, provider, and thinking mode on every event
 - Display token usage, cache usage, cost when available, timestamps, IDs, and file metadata
 - Render file writes as code, edits and patches as diffs, and shell calls as commands
+- Show multi-agent message type, task path, sender, and recipient
 - Keep tool calls, tool results, skills, reasoning, and raw JSON collapsed until requested
 - Preserve harness-specific fields in expandable raw JSON
 - Link directly to a harness and session
@@ -21,12 +22,12 @@ Built-in extensions support [Pi](https://github.com/badlogic/pi-mono) and Codex.
 
 ## Built-in harnesses
 
-| Harness | Default session directory |
-| --- | --- |
-| Pi | `~/.pi/agent/sessions` |
-| Codex | `~/.codex/sessions` |
+| Harness | Session directory | Default |
+| --- | --- | --- |
+| Pi | `~/.pi/agent/sessions` | Yes |
+| Codex | `~/.codex/sessions` | No |
 
-Only the selected harness is scanned. Results are cached until **Refresh** is clicked.
+Only the selected harness is scanned. Results are cached until **Refresh** is clicked. Codex archives store token usage but not monetary cost, so the viewer reports **Not stored** instead of inventing an estimate.
 
 ## Requirements
 
@@ -50,7 +51,7 @@ http://127.0.0.1:4173/#pi/019f8b7f-f4f4-7441-8291-f18fef3372cf
 http://127.0.0.1:4173/#codex/SESSION_ID
 ```
 
-Old `#SESSION_ID` links continue to open Pi sessions.
+Bare `#SESSION_ID` links open with whichever installed extension declares `default: true`.
 
 ## Configuration
 
@@ -73,6 +74,7 @@ Every enabled JavaScript file in `extensions/` is loaded as trusted local code. 
 ```js
 module.exports = {
   enabled: true,
+  default: false,
   id: 'my-harness',
   label: 'My Harness',
   defaultRoot: '~/.my-harness/sessions',
@@ -88,7 +90,9 @@ module.exports = {
 };
 ```
 
-Copy `extensions/custom-example.js`, implement the two methods, and set `enabled: true`. Extensions may use JSONL, SQLite, or any other local format, but must normalize data into the viewer's existing `summary` and `events` shape.
+Copy `extensions/custom-example.js`, implement the two methods, and set `enabled: true`. Extensions may use JSONL, SQLite, or any other local format, but must normalize data into the viewer's shared `summary` and `events` shape.
+
+The server and browser contain no harness IDs or harness event/tool names. Extensions normalize their records into generic events (`title`, `summary`, `display`) and message content primitives such as `text`, `context`, `toolCall`, `toolResult`, `command`, `code`, `diff`, and `fileChange`. Adding a harness therefore requires only an extension file.
 
 Extensions execute with the same filesystem permissions as the server. Install only code you trust.
 

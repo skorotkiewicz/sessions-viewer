@@ -104,8 +104,157 @@ function summarizeRecords(records, sourceFile = '', stat = {}) {
   };
 }
 
+function humanize(value) {
+  return String(value || 'Event')
+    .replaceAll('_', ' ')
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function parseArguments(value) {
+  if (value && typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return { value };
+  }
+}
+
+function toolCall(item) {
+  const name = String(item.name || 'tool').split('.').pop();
+  const args = parseArguments(item.arguments);
+  const sourcePath = args.path || args.file_path || '';
+  let details;
+
+  if (name === 'write' && typeof args.content === 'string') {
+    details = [{ type: 'code', source: args.content, path: sourcePath, label: sourcePath }];
+  } else if (name === 'edit' && Array.isArray(args.edits)) {
+    details = args.edits.map((edit, index) => ({
+      type: 'diff',
+      oldText: edit.oldText || '',
+      newText: edit.newText || '',
+      label: `${sourcePath || 'Edit'} · change ${index + 1}`,
+    }));
+  } else if (name === 'read') {
+    const fields = [
+      args.offset != null && { label: 'From line', value: args.offset },
+      args.limit != null && { label: 'Limit', value: `${args.limit} lines` },
+    ].filter(Boolean);
+    details = fields.length
+      ? [{ type: 'fields', fields }]
+      : [{ type: 'text', text: 'File contents are in the following result.' }];
+  } else if (name === 'bash') {
+    details = [{
+      type: 'code',
+      source: Array.isArray(args.command) ? args.command.join(' ') : args.command || '',
+      language: 'shell',
+      label: 'Command',
+    }];
+  } else {
+    details = [{ type: 'data', label: 'Arguments', value: args }];
+  }
+
+  return { ...item, label: name, path: sourcePath, details };
+}
+
+function resultDetails(message, call) {
+  const name = String(call?.name || message.toolName || '').split('.').pop();
+  if (name === 'read') {
+    return (message.content || []).map((item) => item?.type === 'text'
+      ? { type: 'code', source: item.text || '', path: call?.path, label: call?.path || 'Output' }
+      : item);
+  }
+  if (name === 'bash') {
+    return (message.content || []).map((item) => item?.type === 'text'
+      ? { type: 'code', source: item.text || '', language: 'text', label: 'Output' }
+      : item);
+  }
+  return message.content;
+}
+
+function normalizeRecord(record, toolCalls = new Map()) {
+  if (record.type === 'message' && record.message?.role === 'toolResult') {
+    const message = record.message;
+    return {
+      ...record,
+      message: {
+        role: 'tool',
+        content: [{
+          type: 'toolResult',
+          toolCallId: message.toolCallId,
+          toolName: message.toolName,
+          label: toolCalls.get(message.toolCallId)?.label || message.toolName,
+          details: resultDetails(message, toolCalls.get(message.toolCallId)),
+          isError: message.isError,
+        }],
+      },
+      raw: record,
+    };
+  }
+  if (record.type === 'message' && record.message?.role === 'bashExecution') {
+    const message = record.message;
+    return {
+      ...record,
+      message: {
+        role: 'tool',
+        content: [{
+          type: 'command',
+          command: message.command,
+          output: message.output,
+          exitCode: message.exitCode,
+        }],
+      },
+      raw: record,
+    };
+  }
+  if (record.type === 'message') {
+    const content = (record.message?.content || []).map((item) =>
+      item?.type === 'toolCall' ? toolCall(item) : item);
+    return content.some((item, index) => item !== record.message.content[index])
+      ? { ...record, message: { ...record.message, content }, raw: record }
+      : record;
+  }
+
+  const normalized = {
+    ...record,
+    type: 'event',
+    variant: record.type,
+    raw: record,
+  };
+  if (record.type === 'session') {
+    normalized.title = 'Session started';
+    normalized.summary = record.cwd || '';
+  } else if (record.type === 'model_change') {
+    normalized.title = 'Model changed';
+    normalized.summary = [record.provider, record.modelId].filter(Boolean).join('/');
+  } else if (record.type === 'thinking_level_change') {
+    normalized.title = 'Thinking mode changed';
+    normalized.summary = record.thinkingLevel || '';
+  } else if (record.type === 'compaction') {
+    normalized.title = 'Context compacted';
+    normalized.summary = record.summary || '';
+  } else if (record.type === 'custom') {
+    normalized.title = 'Custom event · ' + (record.customType || 'unknown');
+    normalized.summary = JSON.stringify(record.data, null, 2);
+  } else if (record.type === 'custom_message') {
+    normalized.title = 'Custom message · ' + (record.customType || 'unknown');
+    normalized.summary = typeof record.content === 'string'
+      ? record.content
+      : JSON.stringify(record.content, null, 2);
+  } else {
+    normalized.title = record.title || humanize(record.type);
+    normalized.summary = record.summary || '';
+  }
+  return normalized;
+}
+
 function contextualize(records) {
   let active = { provider: null, model: null, thinking: null };
+  const toolCalls = new Map();
+  for (const record of records) {
+    for (const item of record.message?.content || []) {
+      if (item?.type === 'toolCall' && item.id) toolCalls.set(item.id, toolCall(item));
+    }
+  }
   return records.map((record) => {
     if (record.type === 'model_change') {
       active = {
@@ -119,7 +268,7 @@ function contextualize(records) {
     }
     const message = record.message || {};
     return {
-      record,
+      record: normalizeRecord(record, toolCalls),
       context: {
         provider: message.provider || active.provider,
         model: message.model || active.model,
@@ -177,6 +326,7 @@ async function loadSession({ root, id }) {
 }
 
 module.exports = {
+  default: true,
   id: 'pi',
   label: 'Pi',
   defaultRoot: '~/.pi/agent/sessions',
@@ -184,6 +334,7 @@ module.exports = {
   contextualize,
   listSessions,
   loadSession,
+  normalizeRecord,
   readSessionFile,
   summarizeRecords,
 };

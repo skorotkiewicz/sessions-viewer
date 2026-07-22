@@ -83,9 +83,52 @@ function customArguments(payload) {
   return parseArguments(payload.input);
 }
 
+function normalizeToolCall(payload) {
+  const name = String(payload.name || payload.type || 'tool').split('.').pop();
+  const args = payload.type === 'custom_tool_call'
+    ? customArguments(payload)
+    : parseArguments(payload.arguments);
+  const patchPath = typeof args.patch === 'string'
+    ? args.patch.match(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/m)?.[1]
+    : '';
+  const sourcePath = args.path || args.file_path || patchPath || '';
+  let details;
+
+  if (name === 'apply_patch' && typeof args.patch === 'string') {
+    details = [{ type: 'diff', source: args.patch, label: sourcePath || 'Patch' }];
+  } else if (name === 'exec' || name === 'exec_command') {
+    const command = args.command || args.cmd || '';
+    details = [{
+      type: 'code',
+      source: Array.isArray(command) ? command.join(' ') : String(command),
+      language: name === 'exec' ? 'javascript' : 'shell',
+      label: 'Command',
+    }];
+  } else {
+    details = [{ type: 'data', label: 'Arguments', value: args }];
+  }
+
+  return {
+    type: 'toolCall',
+    id: payload.call_id || payload.id,
+    name: payload.name || payload.type,
+    label: name,
+    path: sourcePath,
+    arguments: args,
+    details,
+  };
+}
+
+function toolResultDetails(output, call) {
+  const text = outputText(output);
+  return call && ['exec', 'exec_command'].includes(call.label)
+    ? [{ type: 'code', source: text, language: 'text', label: 'Output' }]
+    : [{ type: 'text', text }];
+}
+
 function specialRecord(raw, title, summary = '') {
   return {
-    type: 'codex_event',
+    type: 'event',
     variant: raw.payload?.type || raw.type,
     timestamp: raw.timestamp,
     title,
@@ -172,9 +215,57 @@ function payloadDisplay(raw) {
   };
 }
 
+function parseAgentEnvelope(text) {
+  const match = String(text || '').match(
+    /^Message Type:\s*([^\r\n]*)\r?\nTask name:\s*([^\r\n]*)\r?\nSender:\s*([^\r\n]*)\r?\nPayload:\s*\r?\n?([\s\S]*)$/,
+  );
+  return match ? {
+    type: match[1].trim(),
+    task: match[2].trim(),
+    sender: match[3].trim(),
+    payload: match[4],
+  } : null;
+}
+
+function normalizeAgentMessage(payload) {
+  const items = Array.isArray(payload.content) ? payload.content : [];
+  const textIndex = items.findIndex((item) => item?.type === 'input_text');
+  const envelope = textIndex >= 0 ? parseAgentEnvelope(items[textIndex].text) : null;
+  const content = envelope
+    ? items.flatMap((item, index) => {
+      if (index === textIndex) {
+        return envelope.payload ? [{ type: 'text', text: envelope.payload }] : [];
+      }
+      return messageContent([item], 'agent');
+    })
+    : messageContent(items, 'agent');
+  const metadata = [
+    ['Message type', envelope?.type],
+    ['Task', envelope?.task],
+    ['Sender', payload.author || envelope?.sender],
+    ['Recipient', payload.recipient],
+    ['Turn', payload.internal_chat_message_metadata_passthrough?.turn_id],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => ({ label, value }));
+
+  return { role: 'agent', metadata, content };
+}
+
+function fileChangeContent(payload) {
+  return Object.entries(payload.changes || {}).map(([sourcePath, change]) => ({
+    type: 'fileChange',
+    path: sourcePath,
+    changeType: change.type || 'update',
+    movePath: change.move_path || null,
+    content: change.content,
+    diff: change.unified_diff,
+  }));
+}
+
 function normalizeRecords(records) {
   const metadata = records.find((record) => record.type === 'session_meta')?.payload || {};
-  const callNames = new Map();
+  const toolCalls = new Map();
   const responseMessages = new Map();
   let finalTokenIndex = -1;
 
@@ -187,7 +278,7 @@ function normalizeRecords(records) {
     if (raw.type === 'response_item'
       && ['function_call', 'custom_tool_call'].includes(payload.type)
       && payload.call_id) {
-      callNames.set(payload.call_id, payload.name || payload.type);
+      toolCalls.set(payload.call_id, normalizeToolCall(payload));
     }
     if (raw.type === 'response_item'
       && (payload.type === 'message' || payload.type === 'agent_message')) {
@@ -227,11 +318,12 @@ function normalizeRecords(records) {
       if (firstMetadata) {
         firstMetadata = false;
         push({
-          type: 'session',
+          type: 'event',
+          variant: 'session',
           id: payload.id || payload.session_id,
           timestamp: payload.timestamp || raw.timestamp,
-          cwd: payload.cwd || '',
-          parentSession: payload.forked_from_id || payload.parent_thread_id || null,
+          title: 'Session started',
+          summary: payload.cwd || '',
           display: payloadDisplay(raw),
           raw,
         });
@@ -258,17 +350,29 @@ function normalizeRecords(records) {
     }
 
     if (raw.type === 'response_item') {
-      if (payload.type === 'message' || payload.type === 'agent_message') {
+      if (payload.type === 'agent_message') {
         push({
           type: 'message',
           id: payload.id,
           timestamp: raw.timestamp,
           message: {
-            role: payload.role || (payload.type === 'agent_message' ? 'assistant' : 'unknown'),
-            content: messageContent(
-              payload.content,
-              payload.role || (payload.type === 'agent_message' ? 'assistant' : 'unknown'),
-            ),
+            ...normalizeAgentMessage(payload),
+            provider: active.provider,
+            model: active.model,
+          },
+          raw,
+        });
+        return;
+      }
+
+      if (payload.type === 'message') {
+        push({
+          type: 'message',
+          id: payload.id,
+          timestamp: raw.timestamp,
+          message: {
+            role: payload.role || 'unknown',
+            content: messageContent(payload.content, payload.role || 'unknown'),
             provider: active.provider,
             model: active.model,
             phase: payload.phase,
@@ -304,14 +408,7 @@ function normalizeRecords(records) {
           timestamp: raw.timestamp,
           message: {
             role: 'assistant',
-            content: [{
-              type: 'toolCall',
-              id: payload.call_id,
-              name: payload.name || payload.type,
-              arguments: payload.type === 'custom_tool_call'
-                ? customArguments(payload)
-                : parseArguments(payload.arguments),
-            }],
+            content: [normalizeToolCall(payload)],
             provider: active.provider,
             model: active.model,
           },
@@ -327,11 +424,14 @@ function normalizeRecords(records) {
           id: payload.call_id,
           timestamp: raw.timestamp,
           message: {
-            role: 'toolResult',
-            toolCallId: payload.call_id,
-            toolName: callNames.get(payload.call_id) || 'tool',
-            content: [{ type: 'text', text: outputText(payload.output) }],
-            isError: payload.output?.success === false,
+            role: 'tool',
+            content: [{
+              type: 'toolResult',
+              toolCallId: payload.call_id,
+              label: toolCalls.get(payload.call_id)?.label || 'tool',
+              details: toolResultDetails(payload.output, toolCalls.get(payload.call_id)),
+              isError: payload.output?.success === false,
+            }],
           },
           raw,
         });
@@ -388,10 +488,36 @@ function normalizeRecords(records) {
       }
       if (payload.type === 'token_count' && index !== finalTokenIndex) return;
 
+      if (payload.type === 'patch_apply_end') {
+        const changes = fileChangeContent(payload);
+        push({
+          type: 'message',
+          timestamp: raw.timestamp,
+          message: {
+            role: 'tool',
+            content: changes.length ? changes : [{
+              type: 'toolResult',
+              toolCallId: payload.call_id,
+              toolName: 'patch',
+              content: [{ type: 'text', text: payload.stdout || payload.stderr || '' }],
+              isError: !payload.success,
+            }],
+          },
+          raw,
+        });
+        return;
+      }
+
       if (payload.type === 'turn_aborted') {
         push({
-          type: 'turn_aborted',
+          type: 'event',
+          variant: payload.type,
           timestamp: raw.timestamp,
+          title: 'Turn aborted',
+          summary: [
+            payload.reason || 'aborted',
+            payload.duration_ms == null ? '' : `${payload.duration_ms} ms`,
+          ].filter(Boolean).join(' · '),
           turnId: payload.turn_id,
           reason: payload.reason || 'aborted',
           durationMs: payload.duration_ms,
@@ -407,10 +533,13 @@ function normalizeRecords(records) {
           type: 'message',
           timestamp: raw.timestamp,
           message: {
-            role: 'toolResult',
-            toolName: 'Codex',
-            content: [{ type: 'text', text: payload.message || 'Unknown Codex error' }],
-            isError: true,
+            role: 'tool',
+            content: [{
+              type: 'toolResult',
+              toolName: 'Harness',
+              content: [{ type: 'text', text: payload.message || 'Unknown harness error' }],
+              isError: true,
+            }],
           },
           raw,
         });
@@ -437,9 +566,11 @@ function normalizeRecords(records) {
 
     if (raw.type === 'compacted') {
       push({
-        type: 'compaction',
+        type: 'event',
+        variant: 'compaction',
         timestamp: raw.timestamp,
-        summary: valueText(payload.message) || 'Context compacted',
+        title: 'Context compacted',
+        summary: valueText(payload.message) || '',
         display: payloadDisplay(raw),
         raw,
       });
@@ -530,7 +661,12 @@ function summarizeRecords(records, sourceFile = '', stat = {}, events = normaliz
       reasoning: finalUsage.reasoning_output_tokens || 0,
       totalTokens: finalUsage.total_tokens || 0,
     },
-    cost: {},
+    cost: { label: 'Not stored' },
+    tags: [
+      metadata.agent_path && { label: `Agent · ${metadata.agent_path}`, tone: 'blue' },
+      metadata.agent_role && { label: `Role · ${metadata.agent_role}` },
+      metadata.agent_nickname && { label: `Nickname · ${metadata.agent_nickname}` },
+    ].filter(Boolean),
     toolCalls,
     images: eventTypes['response_item:image_generation_call'] || 0,
     thinkingBlocks,

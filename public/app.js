@@ -2,7 +2,7 @@
 
 const state = {
   harnesses: [],
-  harness: 'pi',
+  harness: '',
   sessions: [],
   selected: null,
   sort: 'date',
@@ -117,6 +117,12 @@ function totalCost(session) {
   return Number((session.cost || {}).total || 0);
 }
 
+function displayCost(session) {
+  return Object.prototype.hasOwnProperty.call(session.cost || {}, 'total')
+    ? formatMoney(totalCost(session))
+    : session.cost?.label || '—';
+}
+
 function totalTokens(session) {
   return Number((session.usage || {}).totalTokens || 0);
 }
@@ -217,7 +223,7 @@ function renderSessionList() {
 function hashSelection() {
   const value = location.hash.slice(1);
   const separator = value.indexOf('/');
-  if (separator < 0) return { harness: 'pi', id: decodeURIComponent(value) };
+  if (separator < 0) return { harness: '', id: decodeURIComponent(value) };
   return {
     harness: decodeURIComponent(value.slice(0, separator)),
     id: decodeURIComponent(value.slice(separator + 1)),
@@ -252,13 +258,16 @@ async function loadHarnesses() {
     const requestedHarness = state.harnesses.find((harness) =>
       harness.id === requested.harness && harness.available);
     const fallback = state.harnesses.find((harness) =>
-      harness.id === 'pi' && harness.available)
+      harness.default && harness.available)
       || state.harnesses.find((harness) => harness.available);
     if (!requestedHarness && !fallback) throw new Error('No session harnesses found');
 
     state.harness = (requestedHarness || fallback).id;
     harnessSelect.value = state.harness;
-    await loadSessions(false, requestedHarness ? requested.id : '');
+    await loadSessions(
+      false,
+      requestedHarness || !requested.harness ? requested.id : '',
+    );
   } catch (error) {
     sessionList.replaceChildren(createElement('div', 'loading error', error.message));
     resultCount.textContent = 'Failed';
@@ -373,9 +382,7 @@ function renderDetail(data) {
   addFact(
     facts,
     'Cost',
-    Object.prototype.hasOwnProperty.call(session.cost || {}, 'total')
-      ? formatMoney(totalCost(session))
-      : '—',
+    displayCost(session),
   );
 
   const extra = append(header, 'div', 'head-extra');
@@ -392,6 +399,7 @@ function renderDetail(data) {
   addChip(tags, session.harnessLabel || state.harness, 'amber');
   for (const model of session.models) addChip(tags, model, 'mint');
   for (const mode of session.thinkingModes) addChip(tags, 'thinking: ' + mode, 'blue');
+  for (const tag of session.tags || []) addChip(tags, tag.label, tag.tone || '');
   if (session.parentSession) addChip(tags, 'forked session', 'amber');
   if (session.parseErrors) addChip(tags, session.parseErrors + ' parse errors', 'amber');
 
@@ -471,17 +479,14 @@ function renderEvent(event, index, toolCalls) {
 }
 
 function renderMessage(parent, message, toolCalls) {
-  if (message.role === 'toolResult') {
-    renderToolResult(parent, message, toolCalls);
-    return;
+  if (message.metadata && message.metadata.length) {
+    const metadata = append(parent, 'div', 'chips message-fields');
+    for (const field of message.metadata) {
+      addChip(metadata, field.label + ' · ' + compactPath(String(field.value)));
+    }
   }
 
-  if (message.role === 'bashExecution') {
-    renderBashExecution(parent, message);
-    return;
-  }
-
-  renderContent(parent, message.content);
+  renderContent(parent, message.content, toolCalls);
   if (message.errorMessage) {
     append(parent, 'div', 'message-error', message.errorMessage);
   }
@@ -509,106 +514,79 @@ function renderUsage(parent, message) {
   if (message.stopReason) addChip(row, 'stop · ' + message.stopReason);
 }
 
-function normalizeArguments(value) {
-  if (value && typeof value === 'object') return value;
-  if (typeof value !== 'string') return {};
-  try {
-    return JSON.parse(value);
-  } catch {
-    return { value };
-  }
-}
-
-function simpleToolName(name) {
-  return String(name || 'tool').split('.').pop();
-}
-
-function toolPath(call) {
-  const argumentsValue = normalizeArguments((call || {}).arguments);
-  return argumentsValue.path || argumentsValue.file_path || '';
-}
-
 function toolSummary(call, fallbackName) {
-  const name = simpleToolName((call || {}).name || fallbackName);
-  const sourcePath = toolPath(call);
-  return [name, sourcePath ? compactPath(sourcePath) : ''].filter(Boolean).join(' · ');
+  const label = (call && (call.label || call.name)) || fallbackName || 'tool';
+  return [label, call?.path ? compactPath(call.path) : ''].filter(Boolean).join(' · ');
 }
 
-function renderToolResult(parent, message, toolCalls) {
-  const call = toolCalls.get(message.toolCallId);
+function renderToolResult(parent, item, toolCalls) {
+  const call = toolCalls?.get(item.toolCallId);
   const details = append(
     parent,
     'details',
-    'tool-result' + (message.isError ? ' error' : ''),
+    'tool-result' + (item.isError ? ' error' : ''),
   );
   append(
     details,
     'summary',
     '',
-    'Result · ' + toolSummary(call, message.toolName)
-      + (message.isError ? ' · error' : ''),
+    'Result · ' + toolSummary(call, item.label || item.toolName)
+      + (item.isError ? ' · error' : ''),
   );
 
   details.addEventListener('toggle', () => {
     if (!details.open || details.dataset.loaded) return;
     const body = append(details, 'div', 'tool-body');
-    if (message.toolCallId) {
-      append(body, 'div', 'tool-path', 'Call ' + message.toolCallId);
-    }
-    renderToolOutput(body, message.content, call, message.toolName);
+    if (item.toolCallId) append(body, 'div', 'tool-path', 'Call ' + item.toolCallId);
+    renderContent(body, item.details || item.content, toolCalls);
     details.dataset.loaded = 'yes';
   });
 }
 
-function renderBashExecution(parent, message) {
+function renderCommand(parent, item) {
   const details = append(parent, 'details', 'tool-result');
-  append(details, 'summary', '', '$ ' + truncate(message.command || 'Shell command', 120));
+  append(
+    details,
+    'summary',
+    '',
+    item.label || '$ ' + truncate(item.command || 'Command', 120),
+  );
   details.addEventListener('toggle', () => {
     if (!details.open || details.dataset.loaded) return;
     const body = append(details, 'div', 'tool-body');
-    renderCodeBlock(body, message.command || '', 'shell', 'Command');
-    renderCodeBlock(body, message.output || '', 'text', 'Output');
-    const metadata = append(body, 'div', 'chips');
-    if (message.exitCode != null) {
-      addChip(
-        metadata,
-        'exit ' + message.exitCode,
-        message.exitCode ? 'amber' : 'mint',
-      );
+    renderCodeBlock(body, item.command || '', item.language || 'shell', 'Command');
+    if (item.output != null) renderCodeBlock(body, item.output, 'text', 'Output');
+    if (item.exitCode != null) {
+      const metadata = append(body, 'div', 'chips');
+      addChip(metadata, 'exit ' + item.exitCode, item.exitCode ? 'amber' : 'mint');
     }
     details.dataset.loaded = 'yes';
   });
 }
 
-function renderToolOutput(parent, content, call, fallbackName) {
-  const name = simpleToolName((call || {}).name || fallbackName);
-  const sourcePath = toolPath(call);
-
-  if (['read', 'bash', 'exec', 'exec_command', 'apply_patch'].includes(name)
-    && Array.isArray(content)) {
-    for (const item of content) {
-      if (item && item.type === 'text') {
-        renderCodeBlock(
-          parent,
-          item.text || '',
-          ['bash', 'exec', 'exec_command'].includes(name)
-            ? 'text'
-            : name === 'apply_patch'
-              ? 'diff'
-              : languageFromPath(sourcePath),
-          sourcePath ? compactPath(sourcePath) : name + ' output',
-        );
-      } else {
-        renderContent(parent, [item]);
-      }
-    }
-    return;
+function renderFileChange(parent, item) {
+  const destination = item.movePath ? ' → ' + compactPath(item.movePath) : '';
+  const label = (item.changeType || 'Changed') + ' · ' + compactPath(item.path) + destination;
+  if (item.diff != null) {
+    renderCodeBlock(parent, item.diff, 'diff', label);
+  } else {
+    renderCodeBlock(
+      parent,
+      item.content || '',
+      item.language || languageFromPath(item.path),
+      label,
+    );
   }
-
-  renderContent(parent, content);
 }
 
-function renderContent(parent, content) {
+function renderFields(parent, item) {
+  const metadata = append(parent, 'div', 'chips');
+  for (const field of item.fields || []) {
+    addChip(metadata, field.label + ' · ' + compactPath(String(field.value)));
+  }
+}
+
+function renderContent(parent, content, toolCalls) {
   if (typeof content === 'string') {
     renderRichText(parent, content);
     return;
@@ -625,7 +603,28 @@ function renderContent(parent, content) {
     } else if (item.type === 'context') {
       renderContext(parent, item);
     } else if (item.type === 'toolCall') {
-      renderToolCall(parent, item);
+      renderToolCall(parent, item, toolCalls);
+    } else if (item.type === 'toolResult') {
+      renderToolResult(parent, item, toolCalls);
+    } else if (item.type === 'command') {
+      renderCommand(parent, item);
+    } else if (item.type === 'fileChange') {
+      renderFileChange(parent, item);
+    } else if (item.type === 'code') {
+      renderCodeBlock(
+        parent,
+        item.source || '',
+        item.language || languageFromPath(item.path),
+        item.label || compactPath(item.path) || 'Code',
+      );
+    } else if (item.type === 'diff') {
+      if (item.source != null) {
+        renderCodeBlock(parent, item.source, 'diff', item.label || 'Diff');
+      } else {
+        renderDiff(parent, item.oldText || '', item.newText || '', item.label || 'Diff');
+      }
+    } else if (item.type === 'fields') {
+      renderFields(parent, item);
     } else if (item.type === 'image') {
       renderImage(parent, item);
     } else {
@@ -684,96 +683,36 @@ function renderDataContent(parent, item) {
     details,
     'summary',
     '',
-    String(item.type || 'Data').replaceAll('_', ' '),
+    item.label || String(item.type || 'Data').replaceAll('_', ' '),
   );
   details.addEventListener('toggle', () => {
     if (!details.open || details.dataset.loaded) return;
-    renderCodeBlock(details, JSON.stringify(item, null, 2), 'json', 'Stored content');
+    const value = Object.prototype.hasOwnProperty.call(item, 'value')
+      ? item.value
+      : item;
+    renderCodeBlock(details, JSON.stringify(value, null, 2), 'json', 'Stored content');
     details.dataset.loaded = 'yes';
   });
 }
 
-function renderToolCall(parent, item) {
+function renderToolCall(parent, item, toolCalls) {
   const details = append(parent, 'details', 'tool');
   append(details, 'summary', '', 'Tool call · ' + toolSummary(item, item.name));
   details.addEventListener('toggle', () => {
     if (!details.open || details.dataset.loaded) return;
     const body = append(details, 'div', 'tool-body');
     if (item.id) append(body, 'div', 'tool-path', 'Call ' + item.id);
-    renderToolArguments(body, item);
+    if (item.details?.length) {
+      renderContent(body, item.details, toolCalls);
+    } else {
+      renderDataContent(body, {
+        type: 'data',
+        label: 'Arguments',
+        value: item.arguments || {},
+      });
+    }
     details.dataset.loaded = 'yes';
   });
-}
-
-function renderToolArguments(parent, call) {
-  const name = simpleToolName(call.name);
-  const argumentsValue = normalizeArguments(call.arguments);
-  const sourcePath = argumentsValue.path || argumentsValue.file_path || '';
-
-  if (sourcePath) {
-    append(parent, 'div', 'tool-path', compactPath(sourcePath));
-  }
-
-  if (name === 'write' && typeof argumentsValue.content === 'string') {
-    renderCodeBlock(
-      parent,
-      argumentsValue.content,
-      languageFromPath(sourcePath),
-      compactPath(sourcePath) || 'Written content',
-    );
-    return;
-  }
-
-  if (name === 'edit' && Array.isArray(argumentsValue.edits)) {
-    argumentsValue.edits.forEach((edit, index) => {
-      renderDiff(
-        parent,
-        edit.oldText || '',
-        edit.newText || '',
-        (compactPath(sourcePath) || 'Edit') + ' · change ' + (index + 1),
-      );
-    });
-    return;
-  }
-
-  if (name === 'read') {
-    const metadata = append(parent, 'div', 'chips');
-    if (argumentsValue.offset != null) {
-      addChip(metadata, 'from line ' + argumentsValue.offset);
-    }
-    if (argumentsValue.limit != null) {
-      addChip(metadata, 'limit ' + argumentsValue.limit + ' lines');
-    }
-    if (!metadata.childElementCount) {
-      append(parent, 'div', 'text-content', 'File contents are in the following result.');
-    }
-    return;
-  }
-
-  if (['bash', 'exec', 'exec_command'].includes(name)) {
-    const command = argumentsValue.command || argumentsValue.cmd;
-    if (command) {
-      renderCodeBlock(
-        parent,
-        Array.isArray(command) ? command.join(' ') : String(command),
-        'shell',
-        'Command',
-      );
-      return;
-    }
-  }
-
-  if (name === 'apply_patch' && typeof argumentsValue.patch === 'string') {
-    renderCodeBlock(parent, argumentsValue.patch, 'diff', 'Patch');
-    return;
-  }
-
-  renderCodeBlock(
-    parent,
-    JSON.stringify(argumentsValue, null, 2),
-    'json',
-    'Arguments',
-  );
 }
 
 function languageFromPath(sourcePath) {
@@ -861,39 +800,11 @@ function renderImage(parent, item) {
 }
 
 function renderSpecialEvent(parent, record) {
-  let title = record.title || record.type || 'Event';
-  let copy = record.summary || '';
-
-  if (record.type === 'session') {
-    title = 'Session started';
-    copy = record.cwd || '';
-  } else if (record.type === 'model_change') {
-    title = 'Model changed';
-    copy = [record.provider, record.modelId].filter(Boolean).join('/');
-  } else if (record.type === 'thinking_level_change') {
-    title = 'Thinking mode changed';
-    copy = record.thinkingLevel || '';
-  } else if (record.type === 'compaction') {
-    title = 'Context compacted';
-    copy = record.summary || '';
-  } else if (record.type === 'turn_aborted') {
-    title = 'Turn aborted';
-    copy = [
-      record.reason,
-      record.durationMs != null ? formatDuration(record.durationMs) : '',
-    ].filter(Boolean).join(' · ');
-  } else if (record.type === 'custom') {
-    title = 'Custom event · ' + (record.customType || 'unknown');
-    copy = JSON.stringify(record.data, null, 2);
-  } else if (record.type === 'custom_message') {
-    title = 'Custom message · ' + (record.customType || 'unknown');
-    copy = typeof record.content === 'string'
-      ? record.content
-      : JSON.stringify(record.content, null, 2);
-  }
-
-  append(parent, 'div', 'special-title', title);
-  if (copy) append(parent, 'div', 'special-copy', copy);
+  const fallback = String(record.variant || record.type || 'Event')
+    .replaceAll('_', ' ')
+    .replace(/^./, (letter) => letter.toUpperCase());
+  append(parent, 'div', 'special-title', record.title || fallback);
+  if (record.summary) append(parent, 'div', 'special-copy', record.summary);
   renderRecordDetails(parent, record);
 }
 

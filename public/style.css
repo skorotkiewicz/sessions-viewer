@@ -401,12 +401,12 @@ button {
     border-left: 3px solid var(--mint);
 }
 
-.event.developer {
+.event.developer,
+.event.agent {
     border-left: 3px solid #b6a6ff;
 }
 
-.event.toolResult,
-.event.bashExecution {
+.event.tool {
     background: #12171d;
     border-left: 3px solid var(--amber);
 }

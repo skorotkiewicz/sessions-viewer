@@ -5,6 +5,7 @@
 // JavaScript and may use any storage format.
 module.exports = {
   enabled: false,
+  default: false,
   id: 'custom',
   label: 'Custom Harness',
   defaultRoot: '~/.custom-harness/sessions',

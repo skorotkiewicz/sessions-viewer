@@ -4,7 +4,6 @@ const fs = require('node:fs/promises');
 const http = require('node:http');
 const path = require('node:path');
 const { loadExtensions } = require('./extensions');
-const pi = require('./extensions/pi');
 const { expandHome, parseJsonl } = require('./lib/jsonl');
 
 const HOST = '127.0.0.1';
@@ -12,12 +11,16 @@ const PORT = Number(process.env.PORT || 4173);
 const PAGE_FILE = path.join(__dirname, 'page.html');
 const APP_FILE = path.join(__dirname, 'public', 'app.js');
 const STYLE_FILE = path.join(__dirname, 'public', 'style.css');
-const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#111923"/><text x="32" y="45" text-anchor="middle" font-family="Georgia,serif" font-size="42" fill="#70e1bd">π</text></svg>';
+const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#111923"/><text x="32" y="44" text-anchor="middle" font-family="sans-serif" font-size="38" fill="#70e1bd">◇</text></svg>';
 
 function extensionRoot(extension, options = {}) {
   if (options.roots?.[extension.id]) return expandHome(options.roots[extension.id]);
-  if (extension.id === 'pi' && options.root) return expandHome(options.root);
   return expandHome(process.env[extension.rootEnv] || extension.defaultRoot);
+}
+
+function defaultExtension(extensions) {
+  return [...extensions.values()].find((extension) => extension.default)
+    || extensions.values().next().value;
 }
 
 async function describeExtensions(extensions, options) {
@@ -29,7 +32,13 @@ async function describeExtensions(extensions, options) {
     } catch {
       available = false;
     }
-    return { id: extension.id, label: extension.label, root, available };
+    return {
+      id: extension.id,
+      label: extension.label,
+      root,
+      available,
+      default: extension === defaultExtension(extensions),
+    };
   }));
 }
 
@@ -95,7 +104,7 @@ function createServer(options = {}) {
         });
       }
       if (url.pathname === '/api/sessions') {
-        const harness = url.searchParams.get('harness') || 'pi';
+        const harness = url.searchParams.get('harness') || defaultExtension(extensions)?.id;
         const extension = extensions.get(harness);
         if (!extension) return sendJson(res, 404, { error: 'Unknown harness' });
         const result = await sessionsFor(
@@ -107,7 +116,9 @@ function createServer(options = {}) {
       if (url.pathname.startsWith('/api/session/')) {
         const parts = url.pathname.slice('/api/session/'.length).split('/');
         const explicitHarness = parts.length > 1 && extensions.has(parts[0]);
-        const harness = explicitHarness ? decodeURIComponent(parts.shift()) : 'pi';
+        const harness = explicitHarness
+          ? decodeURIComponent(parts.shift())
+          : defaultExtension(extensions)?.id;
         const id = decodeURIComponent(parts.join('/'));
         const extension = extensions.get(harness);
         if (!extension) return sendJson(res, 404, { error: 'Unknown harness' });
@@ -128,10 +139,6 @@ function createServer(options = {}) {
   });
 }
 
-async function scanSessions(root = expandHome(process.env.PI_SESSIONS_DIR || pi.defaultRoot)) {
-  return pi.listSessions({ root });
-}
-
 if (require.main === module) {
   if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
     throw new Error('PORT must be between 1 and 65535');
@@ -145,11 +152,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = {
-  contextualize: pi.contextualize,
-  createServer,
-  parseJsonl,
-  readSessionFile: pi.readSessionFile,
-  scanSessions,
-  summarizeRecords: pi.summarizeRecords,
-};
+module.exports = { createServer, parseJsonl };
