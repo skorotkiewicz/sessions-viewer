@@ -1,64 +1,1562 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
-<title>Pi Session Archive</title>
-<style>
-:root{--bg:#090c12;--panel:#10151e;--panel2:#151c27;--line:#263142;--muted:#8b98aa;--text:#ecf2f8;--mint:#70e1bd;--amber:#ffc66d;--blue:#7db8ff;--red:#ff8d93;--shadow:0 20px 60px #0007;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#172334 0,transparent 32rem),var(--bg);color:var(--text);min-height:100vh}button,input,select{font:inherit}button{color:inherit}.shell{width:min(1600px,100%);margin:auto;padding:24px}.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:14px}.mark{display:grid;place-items:center;width:48px;height:48px;border:1px solid #4c6a70;border-radius:15px;background:linear-gradient(145deg,#18313a,#111923);color:var(--mint);font:700 28px Georgia;box-shadow:0 10px 30px #0005}.eyebrow{text-transform:uppercase;letter-spacing:.14em;color:var(--mint);font-size:11px;font-weight:800}.brand h1{font-size:25px;margin:3px 0 0;letter-spacing:-.03em}.stats{display:flex;gap:22px;color:var(--muted);font-size:12px}.stats strong{display:block;color:var(--text);font-size:17px;margin-bottom:2px}.toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto auto auto;gap:10px;padding:12px;background:#0d121a;border:1px solid var(--line);border-radius:16px 16px 0 0}.field{display:flex;align-items:center;gap:9px;min-height:42px;padding:0 13px;background:var(--panel2);border:1px solid #2c3849;border-radius:10px;color:var(--muted)}.field:focus-within{border-color:#5c927f;box-shadow:0 0 0 3px #70e1bd15}.field input,.field select{border:0;outline:0;color:var(--text);background:transparent;width:100%}.field select{cursor:pointer}.icon-button{border:1px solid #2c3849;border-radius:10px;background:var(--panel2);padding:0 14px;cursor:pointer}.icon-button:hover{border-color:#597087;background:#1a2431}.workspace{display:grid;grid-template-columns:390px minmax(0,1fr);height:calc(100vh - 165px);min-height:560px;border:1px solid var(--line);border-top:0;border-radius:0 0 16px 16px;overflow:hidden;box-shadow:var(--shadow)}.sessions{background:#0d121a;border-right:1px solid var(--line);overflow:auto}.list-heading{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;padding:14px 16px;background:#0d121af2;backdrop-filter:blur(12px);border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}.session-list{padding:8px}.session-card{display:block;width:100%;text-align:left;border:1px solid transparent;border-radius:12px;background:transparent;padding:13px;margin:0 0 5px;cursor:pointer}.session-card:hover{background:#141b25;border-color:#273445}.session-card.active{background:linear-gradient(110deg,#17262a,#17202b);border-color:#3b6a62;box-shadow:inset 3px 0 var(--mint)}.card-top{display:flex;justify-content:space-between;gap:12px}.card-title{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-date{flex:0 0 auto;color:var(--muted);font-size:11px}.preview{color:#b4becb;font-size:12px;line-height:1.45;margin:7px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.path,.session-id,.source{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:#7f91a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-meta,.chips,.micro{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.chip{display:inline-flex;align-items:center;max-width:100%;padding:3px 7px;border:1px solid #2b394a;border-radius:999px;background:#111823;color:#aeb9c7;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chip.mint{color:var(--mint);border-color:#31594f}.chip.amber{color:var(--amber);border-color:#5b4930}.chip.blue{color:var(--blue);border-color:#324c69}.detail{overflow:auto;background:var(--panel)}.empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted);padding:30px}.empty-symbol{font:60px Georgia;color:#304051}.detail-head{padding:26px 30px 22px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#151d28,#10151e)}.detail-head h2{font-size:24px;letter-spacing:-.03em;margin:5px 0 8px;max-width:900px}.detail-path{color:#b7c4d1;font:12px ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.facts{display:grid;grid-template-columns:repeat(6,minmax(90px,1fr));gap:8px;margin-top:18px}.fact{padding:10px 11px;border:1px solid #263345;border-radius:9px;background:#111721;min-width:0}.fact span{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}.fact strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.head-extra{margin-top:13px}.timeline-head{display:flex;align-items:center;justify-content:space-between;padding:20px 30px 8px}.timeline-head h3{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:#b9c4d1}.timeline{padding:0 30px 50px}.event{position:relative;margin:0 0 12px;padding:15px 17px;border:1px solid var(--line);border-radius:12px;background:#111721;overflow:hidden}.event.user{border-left:3px solid var(--blue)}.event.assistant{border-left:3px solid var(--mint)}.event.toolResult,.event.bashExecution{border-left:3px solid var(--amber);background:#12171d}.event.special{border-style:dashed;background:#0e141c}.event-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.event-role{font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:800}.event-time{color:var(--muted);font-size:10px}.micro{margin:0 0 11px}.text-content,.event pre{font:12px/1.62 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:#d8e1ea}.text-content{font-family:inherit;font-size:14px;line-height:1.65}.event details{margin-top:10px;border-top:1px solid #253142;padding-top:9px}.event summary{cursor:pointer;color:#aebdca;font-size:11px;font-weight:700}.event details[open] summary{margin-bottom:9px}.thinking summary{color:var(--mint)}.tool summary{color:var(--amber)}.tool-name{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--amber);margin-bottom:8px}.message-error{color:var(--red);margin:8px 0}.image{display:block;max-width:min(100%,800px);max-height:600px;margin-top:10px;border-radius:8px;border:1px solid var(--line)}.raw pre{max-height:430px;overflow:auto;padding:12px;border-radius:8px;background:#090d13;color:#9fb0c0}.special-title{font-weight:750;margin-bottom:6px}.special-copy{color:#c3cdd8;white-space:pre-wrap;line-height:1.55}.loading{padding:30px;color:var(--muted)}.error{color:var(--red)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:950px){.shell{padding:12px}.workspace{grid-template-columns:330px minmax(0,1fr);height:calc(100vh - 145px)}.stats{display:none}.facts{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.topbar{margin:4px 2px 14px}.toolbar{grid-template-columns:1fr auto auto}.toolbar .sort-field{grid-column:1/3}.workspace{display:block;height:auto;min-height:0;overflow:visible}.sessions{height:43vh;border-right:0;border-bottom:1px solid var(--line)}.detail{min-height:70vh}.detail-head,.timeline{padding-left:16px;padding-right:16px}.timeline-head{padding-left:16px;padding-right:16px}.facts{grid-template-columns:repeat(2,1fr)}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Pi Session Archive</title>
+
+  <style>
+    :root {
+      --background: #090c12;
+      --panel: #10151e;
+      --panel-raised: #151c27;
+      --border: #263142;
+      --muted: #8b98aa;
+      --text: #ecf2f8;
+      --mint: #70e1bd;
+      --amber: #ffc66d;
+      --blue: #7db8ff;
+      --red: #ff8d93;
+      --shadow: 0 20px 60px #0007;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 0, #172334 0, transparent 32rem),
+        var(--background);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .shell {
+      width: min(1600px, 100%);
+      margin: auto;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .mark {
+      display: grid;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      color: var(--mint);
+      font: 700 28px Georgia, serif;
+      background: linear-gradient(145deg, #18313a, #111923);
+      border: 1px solid #4c6a70;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px #0005;
+    }
+
+    .eyebrow {
+      color: var(--mint);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .brand h1 {
+      margin: 3px 0 0;
+      font-size: 25px;
+      letter-spacing: -0.03em;
+    }
+
+    .stats {
+      display: flex;
+      gap: 22px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stats strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--text);
+      font-size: 17px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto auto auto;
+      gap: 10px;
+      padding: 12px;
+      background: #0d121a;
+      border: 1px solid var(--border);
+      border-radius: 16px 16px 0 0;
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      min-height: 42px;
+      gap: 9px;
+      padding: 0 13px;
+      color: var(--muted);
+      background: var(--panel-raised);
+      border: 1px solid #2c3849;
+      border-radius: 10px;
+    }
+
+    .field:focus-within {
+      border-color: #5c927f;
+      box-shadow: 0 0 0 3px #70e1bd15;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      color: var(--text);
+      background: transparent;
+      border: 0;
+      outline: 0;
+    }
+
+    .field select {
+      cursor: pointer;
+    }
+
+    .icon-button {
+      padding: 0 14px;
+      cursor: pointer;
+      background: var(--panel-raised);
+      border: 1px solid #2c3849;
+      border-radius: 10px;
+    }
+
+    .icon-button:hover {
+      background: #1a2431;
+      border-color: #597087;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 390px minmax(0, 1fr);
+      height: calc(100vh - 165px);
+      min-height: 560px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-top: 0;
+      border-radius: 0 0 16px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .sessions {
+      overflow: auto;
+      background: #0d121a;
+      border-right: 1px solid var(--border);
+    }
+
+    .list-heading {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: 12px;
+      background: #0d121af2;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+
+    .session-list {
+      padding: 8px;
+    }
+
+    .session-card {
+      display: block;
+      width: 100%;
+      margin: 0 0 5px;
+      padding: 13px;
+      text-align: left;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 12px;
+    }
+
+    .session-card:hover {
+      background: #141b25;
+      border-color: #273445;
+    }
+
+    .session-card.active {
+      background: linear-gradient(110deg, #17262a, #17202b);
+      border-color: #3b6a62;
+      box-shadow: inset 3px 0 var(--mint);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-title {
+      overflow: hidden;
+      font-size: 14px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-date {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .preview {
+      display: -webkit-box;
+      margin: 7px 0;
+      overflow: hidden;
+      color: #b4becb;
+      font-size: 12px;
+      line-height: 1.45;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .path,
+    .session-id,
+    .source {
+      overflow: hidden;
+      color: #7f91a5;
+      font: 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-meta,
+    .chips,
+    .micro {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      padding: 3px 7px;
+      overflow: hidden;
+      color: #aeb9c7;
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: #111823;
+      border: 1px solid #2b394a;
+      border-radius: 999px;
+    }
+
+    .chip.mint {
+      color: var(--mint);
+      border-color: #31594f;
+    }
+
+    .chip.amber {
+      color: var(--amber);
+      border-color: #5b4930;
+    }
+
+    .chip.blue {
+      color: var(--blue);
+      border-color: #324c69;
+    }
+
+    .detail {
+      overflow: auto;
+      background: var(--panel);
+    }
+
+    .empty {
+      display: grid;
+      height: 100%;
+      padding: 30px;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .empty-symbol {
+      color: #304051;
+      font: 60px Georgia, serif;
+    }
+
+    .detail-head {
+      padding: 26px 30px 22px;
+      background: linear-gradient(180deg, #151d28, #10151e);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-head h2 {
+      max-width: 900px;
+      margin: 5px 0 8px;
+      font-size: 24px;
+      letter-spacing: -0.03em;
+      text-wrap: balance;
+    }
+
+    .detail-path {
+      overflow-wrap: anywhere;
+      color: #b7c4d1;
+      font: 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(90px, 1fr));
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .fact {
+      min-width: 0;
+      padding: 10px 11px;
+      background: #111721;
+      border: 1px solid #263345;
+      border-radius: 9px;
+    }
+
+    .fact span {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .fact strong {
+      display: block;
+      overflow: hidden;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .head-extra {
+      margin-top: 13px;
+    }
+
+    .timeline-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 30px 8px;
+    }
+
+    .timeline-head h3 {
+      color: #b9c4d1;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .timeline {
+      padding: 0 30px 50px;
+    }
+
+    .event {
+      position: relative;
+      margin: 0 0 12px;
+      padding: 15px 17px;
+      overflow: hidden;
+      background: #111721;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .event.user {
+      border-left: 3px solid var(--blue);
+    }
+
+    .event.assistant {
+      border-left: 3px solid var(--mint);
+    }
+
+    .event.toolResult,
+    .event.bashExecution {
+      background: #12171d;
+      border-left: 3px solid var(--amber);
+    }
+
+    .event.special {
+      background: #0e141c;
+      border-style: dashed;
+    }
+
+    .event-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .event-role {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .event-time {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .micro {
+      margin: 0 0 11px;
+    }
+
+    .text-content {
+      color: #d8e1ea;
+      font-size: 14px;
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .message-error {
+      margin: 8px 0;
+      color: var(--red);
+    }
+
+    .event details {
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid #253142;
+    }
+
+    .event summary {
+      cursor: pointer;
+      color: #aebdca;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .event details[open] > summary {
+      margin-bottom: 9px;
+    }
+
+    .thinking > summary {
+      color: var(--mint);
+    }
+
+    .tool > summary,
+    .tool-result > summary {
+      color: var(--amber);
+    }
+
+    .tool-result.error > summary {
+      color: var(--red);
+    }
+
+    .tool-body {
+      padding: 2px 0 4px;
+    }
+
+    .tool-path {
+      margin: 8px 0;
+      color: #9fb2c4;
+      font: 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .code-block {
+      margin-top: 10px;
+      overflow: hidden;
+      background: #090d13;
+      border: 1px solid #253142;
+      border-radius: 9px;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 34px;
+      padding: 6px 10px;
+      color: #9dafc1;
+      font: 10px ui-monospace, SFMono-Regular, Consolas, monospace;
+      background: #101720;
+      border-bottom: 1px solid #253142;
+    }
+
+    .code-header-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-button {
+      flex: 0 0 auto;
+      padding: 3px 7px;
+      color: #aebdca;
+      font-size: 10px;
+      cursor: pointer;
+      background: #17212d;
+      border: 1px solid #304054;
+      border-radius: 6px;
+    }
+
+    .copy-button:hover {
+      color: var(--text);
+      border-color: #58718b;
+    }
+
+    .code {
+      max-height: 620px;
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      color: #d7e2ec;
+      font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+      tab-size: 2;
+      white-space: pre;
+    }
+
+    .diff {
+      max-height: 620px;
+      padding: 10px 0;
+      overflow: auto;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .diff-line {
+      display: block;
+      min-width: max-content;
+      padding: 0 14px;
+      white-space: pre;
+    }
+
+    .diff-line.removed {
+      color: #ffb1b5;
+      background: #5d252533;
+    }
+
+    .diff-line.added {
+      color: #a8efd4;
+      background: #245d4933;
+    }
+
+    .image {
+      display: block;
+      max-width: min(100%, 800px);
+      max-height: 600px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .raw pre {
+      max-height: 430px;
+      margin: 0;
+      padding: 12px;
+      overflow: auto;
+      color: #9fb0c0;
+      font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: pre;
+      background: #090d13;
+      border-radius: 8px;
+    }
+
+    .special-title {
+      margin-bottom: 6px;
+      font-weight: 750;
+    }
+
+    .special-copy {
+      color: #c3cdd8;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .loading {
+      padding: 30px;
+      color: var(--muted);
+    }
+
+    .error {
+      color: var(--red);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      white-space: nowrap;
+      border: 0;
+      clip: rect(0, 0, 0, 0);
+    }
+
+    @media (max-width: 950px) {
+      .shell {
+        padding: 12px;
+      }
+
+      .workspace {
+        grid-template-columns: 330px minmax(0, 1fr);
+        height: calc(100vh - 145px);
+      }
+
+      .stats {
+        display: none;
+      }
+
+      .facts {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        margin: 4px 2px 14px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr auto auto;
+      }
+
+      .toolbar .sort-field {
+        grid-column: 1 / 3;
+      }
+
+      .workspace {
+        display: block;
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+      }
+
+      .sessions {
+        height: 43vh;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .detail {
+        min-height: 70vh;
+      }
+
+      .detail-head,
+      .timeline,
+      .timeline-head {
+        padding-right: 16px;
+        padding-left: 16px;
+      }
+
+      .facts {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="shell">
-  <header class="topbar">
-    <div class="brand"><div class="mark">π</div><div><div class="eyebrow">Local archive</div><h1>Pi Sessions</h1></div></div>
-    <div class="stats" id="stats"><div><strong>—</strong>sessions</div><div><strong>—</strong>messages</div><div><strong>—</strong>recorded cost</div></div>
-  </header>
-  <section class="toolbar" aria-label="Session controls">
-    <label class="field"><span>⌕</span><span class="sr-only">Search sessions</span><input id="search" type="search" placeholder="Search prompt, path, ID, model…" autocomplete="off"></label>
-    <label class="field sort-field"><span>Sort</span><select id="sort"><option value="date">Date</option><option value="path">Path</option><option value="id">Session ID</option></select></label>
-    <button class="icon-button" id="direction" title="Reverse sort" aria-label="Reverse sort">↓</button>
-    <button class="icon-button" id="refresh" title="Rescan session files">Refresh</button>
-  </section>
-  <div class="workspace">
-    <aside class="sessions"><div class="list-heading"><span>Sessions</span><span id="result-count">Loading…</span></div><div class="session-list" id="session-list"></div></aside>
-    <main class="detail" id="detail"><div class="empty"><div><div class="empty-symbol">π</div><p>Select a session to inspect its complete timeline.</p></div></div></main>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">π</div>
+        <div>
+          <div class="eyebrow">Local archive</div>
+          <h1>Pi Sessions</h1>
+        </div>
+      </div>
+
+      <div class="stats" id="stats">
+        <div><strong>—</strong>sessions</div>
+        <div><strong>—</strong>messages</div>
+        <div><strong>—</strong>recorded cost</div>
+      </div>
+    </header>
+
+    <section class="toolbar" aria-label="Session controls">
+      <label class="field">
+        <span>⌕</span>
+        <span class="sr-only">Search sessions</span>
+        <input
+          id="search"
+          type="search"
+          placeholder="Search prompt, path, ID, model…"
+          autocomplete="off"
+        >
+      </label>
+
+      <label class="field sort-field">
+        <span>Sort</span>
+        <select id="sort">
+          <option value="date">Date</option>
+          <option value="path">Path</option>
+          <option value="id">Session ID</option>
+        </select>
+      </label>
+
+      <button
+        class="icon-button"
+        id="direction"
+        title="Reverse sort"
+        aria-label="Reverse sort"
+      >↓</button>
+
+      <button
+        class="icon-button"
+        id="refresh"
+        title="Rescan session files"
+      >Refresh</button>
+    </section>
+
+    <div class="workspace">
+      <aside class="sessions">
+        <div class="list-heading">
+          <span>Sessions</span>
+          <span id="result-count">Loading…</span>
+        </div>
+        <div class="session-list" id="session-list"></div>
+      </aside>
+
+      <main class="detail" id="detail">
+        <div class="empty">
+          <div>
+            <div class="empty-symbol">π</div>
+            <p>Select a session to inspect its complete timeline.</p>
+          </div>
+        </div>
+      </main>
+    </div>
   </div>
-</div>
-<script>
-'use strict';
-const state={sessions:[],selected:null,sort:'date',direction:-1,query:'',request:0};
-const list=document.getElementById('session-list');
-const detail=document.getElementById('detail');
-const count=document.getElementById('result-count');
-function make(tag,className,text){const n=document.createElement(tag);if(className)n.className=className;if(text!==undefined)n.textContent=text;return n}
-function add(parent,tag,className,text){const n=make(tag,className,text);parent.appendChild(n);return n}
-function chip(parent,text,tone){return add(parent,'span','chip '+(tone||''),text)}
-function compactPath(value){return (value||'').replace(/^\/home\/[^/]+/,'~').replace(/^\/Users\/[^/]+/,'~')}
-function short(value,size){value=String(value||'');return value.length>(size||12)?value.slice(0,size||12)+'…':value}
-function date(value,compact){if(!value)return 'Unknown';const d=new Date(value);if(Number.isNaN(d.valueOf()))return value;return compact?d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'}):d.toLocaleString()}
-function duration(ms){if(ms==null)return '—';const seconds=Math.floor(ms/1000);if(seconds<60)return seconds+'s';const minutes=Math.floor(seconds/60);if(minutes<60)return minutes+'m '+seconds%60+'s';return Math.floor(minutes/60)+'h '+minutes%60+'m'}
-function bytes(value){if(value==null)return '—';const units=['B','KB','MB','GB'];let n=value,u=0;while(n>=1024&&u<units.length-1){n/=1024;u++}return n.toFixed(u?1:0)+' '+units[u]}
-function money(value){return '$'+Number(value||0).toFixed(Number(value||0)<.01?4:2)}
-function totalCost(session){return Number((session.cost||{}).total||0)}
-function totalTokens(session){return Number((session.usage||{}).totalTokens||0)}
-function displayTitle(session){return session.firstUserMessage||compactPath(session.cwd).split('/').pop()||'Untitled session'}
-function setStats(){const messages=state.sessions.reduce((n,s)=>n+s.messageCount,0);const costValue=state.sessions.reduce((n,s)=>n+totalCost(s),0);const values=[state.sessions.length.toLocaleString(),messages.toLocaleString(),money(costValue)];document.querySelectorAll('#stats strong').forEach((node,index)=>node.textContent=values[index])}
-function visibleSessions(){const query=state.query.trim().toLowerCase();const items=state.sessions.filter((session)=>!query||[session.id,session.cwd,session.firstUserMessage,(session.models||[]).join(' '),(session.thinkingModes||[]).join(' ')].join(' ').toLowerCase().includes(query));const field=state.sort;items.sort((a,b)=>{let av=field==='date'?a.timestamp:field==='path'?a.cwd:a.id;let bv=field==='date'?b.timestamp:field==='path'?b.cwd:b.id;return String(av||'').localeCompare(String(bv||''))*state.direction});return items}
-function renderList(){const items=visibleSessions();count.textContent=items.length+' of '+state.sessions.length;list.replaceChildren();if(!items.length){add(list,'div','loading','No sessions match this search.');return}const fragment=document.createDocumentFragment();for(const session of items){const button=make('button','session-card'+(session.id===state.selected?' active':''));button.type='button';button.addEventListener('click',()=>selectSession(session.id));const top=add(button,'div','card-top');add(top,'div','card-title',compactPath(session.cwd).split('/').pop()||'Unknown path');add(top,'div','card-date',date(session.timestamp,true));add(button,'div','preview',session.firstUserMessage||'No user message recorded');add(button,'div','path',compactPath(session.cwd));add(button,'div','session-id',session.id);const meta=add(button,'div','card-meta');chip(meta,session.messageCount+' messages','blue');if(session.models[0])chip(meta,short(session.models[0],28),'mint');if(totalCost(session))chip(meta,money(totalCost(session)),'amber');fragment.appendChild(button)}list.appendChild(fragment)}
-async function loadSessions(){list.replaceChildren(make('div','loading','Scanning ~/.pi/agent/sessions…'));count.textContent='Loading…';try{const response=await fetch('/api/sessions');if(!response.ok)throw new Error(await response.text());const data=await response.json();state.sessions=data.sessions;setStats();renderList();const wanted=location.hash.slice(1);const first=(visibleSessions()[0]||{}).id;if(wanted&&state.sessions.some((session)=>session.id===wanted))await selectSession(wanted);else if(first)await selectSession(first);else detail.replaceChildren(make('div','empty','No Pi sessions found.'))}catch(error){list.replaceChildren(make('div','loading error',error.message));count.textContent='Failed'}}
-async function selectSession(id){state.selected=id;renderList();history.replaceState(null,'','#'+id);const request=++state.request;detail.replaceChildren(make('div','loading','Loading complete session…'));try{const response=await fetch('/api/session/'+encodeURIComponent(id));if(!response.ok)throw new Error(await response.text());const data=await response.json();if(request===state.request)renderDetail(data)}catch(error){if(request===state.request)detail.replaceChildren(make('div','loading error',error.message))}}
-function fact(parent,label,value,title){const box=add(parent,'div','fact');add(box,'span','',label);const strong=add(box,'strong','',value);if(title)strong.title=title}
-function renderDetail(data){const session=data.summary;detail.replaceChildren();const head=add(detail,'header','detail-head');add(head,'div','eyebrow','Session · '+(session.version?'schema v'+session.version:'unknown schema'));add(head,'h2','',displayTitle(session));add(head,'div','detail-path',compactPath(session.cwd));const facts=add(head,'div','facts');fact(facts,'Started',date(session.timestamp),session.timestamp);fact(facts,'Duration',duration(session.durationMs));fact(facts,'Events',session.eventCount.toLocaleString());fact(facts,'Messages',session.messageCount.toLocaleString());fact(facts,'Tokens',totalTokens(session).toLocaleString());fact(facts,'Cost',money(totalCost(session)));const extras=add(head,'div','head-extra');add(extras,'div','source',session.id);add(extras,'div','source',session.fileDate+' · '+bytes(session.size)+' · '+compactPath(session.sourceFile));const tags=add(extras,'div','chips');for(const model of session.models)chip(tags,model,'mint');for(const mode of session.thinkingModes)chip(tags,'thinking: '+mode,'blue');if(session.parentSession)chip(tags,'forked session','amber');if(session.parseErrors)chip(tags,session.parseErrors+' parse errors','amber');const timelineHead=add(detail,'div','timeline-head');add(timelineHead,'h3','', 'Complete event timeline');add(timelineHead,'div','session-id',data.events.length+' stored records');const timeline=add(detail,'section','timeline');const fragment=document.createDocumentFragment();data.events.forEach((event,index)=>fragment.appendChild(renderEvent(event,index)));timeline.appendChild(fragment)}
-function eventLabel(record){if(record.type==='message')return (record.message&&record.message.role)||'message';return record.type||'unknown'}
-function rawDetails(record){const box=make('details','raw');const summary=add(box,'summary','','All stored fields · raw JSON');box.addEventListener('toggle',()=>{if(box.open&&!box.dataset.loaded){add(box,'pre','',JSON.stringify(record,null,2));box.dataset.loaded='yes'}},{once:true});return box}
-function renderEvent(event,index){const record=event.record||{};const context=event.context||{};const role=eventLabel(record);const article=make('article','event '+(record.type==='message'?role:'special'));const header=add(article,'div','event-header');add(header,'div','event-role',role);add(header,'div','event-time',date(record.timestamp)+' · #'+(index+1));const micro=add(article,'div','micro');chip(micro,'Model · '+([context.provider,context.model].filter(Boolean).join('/')||'not set'),'mint');chip(micro,'Thinking · '+(context.thinking||'not set'),'blue');if(record.id)chip(micro,'ID · '+short(record.id,14));if(record.parentId)chip(micro,'Parent · '+short(record.parentId,14));if(record.type==='message')renderMessage(article,record.message||{});else renderSpecial(article,record);article.appendChild(rawDetails(record));return article}
-function renderMessage(parent,message){if(message.role==='toolResult'){add(parent,'div','tool-name',(message.toolName||'Tool result')+(message.isError?' · error':''));if(message.toolCallId)add(parent,'div','session-id','Call '+message.toolCallId)}if(message.role==='bashExecution'){add(parent,'div','tool-name','$ '+(message.command||''));add(parent,'pre','',message.output||'');if(message.exitCode!=null)chip(add(parent,'div','chips'),'exit '+message.exitCode,message.exitCode?'amber':'mint')}renderContent(parent,message.content);if(message.errorMessage)add(parent,'div','message-error',message.errorMessage);if(message.usage){const row=add(parent,'div','chips');if(message.usage.input!=null)chip(row,'in '+Number(message.usage.input).toLocaleString());if(message.usage.output!=null)chip(row,'out '+Number(message.usage.output).toLocaleString());if(message.usage.reasoning)chip(row,'reasoning '+Number(message.usage.reasoning).toLocaleString());if(message.usage.cacheRead)chip(row,'cache '+Number(message.usage.cacheRead).toLocaleString());if(message.usage.cost&&message.usage.cost.total!=null)chip(row,money(message.usage.cost.total),'amber');if(message.stopReason)chip(row,'stop · '+message.stopReason)} }
-function renderContent(parent,content){if(typeof content==='string'){add(parent,'div','text-content',content);return}if(!Array.isArray(content))return;for(const item of content){if(!item||typeof item!=='object'){add(parent,'pre','',String(item));continue}if(item.type==='text'){add(parent,'div','text-content',item.text||'')}else if(item.type==='thinking'){const box=add(parent,'details','thinking');add(box,'summary','','Thinking');add(box,'div','text-content',item.thinking||'')}else if(item.type==='toolCall'){const box=add(parent,'details','tool');add(box,'summary','','Tool call · '+(item.name||'unknown'));add(box,'div','tool-name',item.id||'');add(box,'pre','',typeof item.arguments==='string'?item.arguments:JSON.stringify(item.arguments,null,2))}else if(item.type==='image'){const safe=['image/png','image/jpeg','image/gif','image/webp'].includes(item.mimeType);if(safe&&item.data){const image=add(parent,'img','image');image.alt='Session image';image.loading='lazy';image.src='data:'+item.mimeType+';base64,'+item.data}else add(parent,'div','text-content','Image · '+(item.mimeType||'unknown format'))}else add(parent,'pre','',JSON.stringify(item,null,2))}}
-function renderSpecial(parent,record){let title=record.type||'Event';let copy='';if(record.type==='session'){title='Session started';copy=record.cwd||''}else if(record.type==='model_change'){title='Model changed';copy=[record.provider,record.modelId].filter(Boolean).join('/')}else if(record.type==='thinking_level_change'){title='Thinking mode changed';copy=record.thinkingLevel||''}else if(record.type==='compaction'){title='Context compacted';copy=record.summary||''}else if(record.type==='custom'){title='Custom event · '+(record.customType||'unknown');copy=JSON.stringify(record.data,null,2)}else if(record.type==='custom_message'){title='Custom message · '+(record.customType||'unknown');copy=typeof record.content==='string'?record.content:JSON.stringify(record.content,null,2)}add(parent,'div','special-title',title);if(copy)add(parent,'div','special-copy',copy)}
-document.getElementById('search').addEventListener('input',(event)=>{state.query=event.target.value;renderList()});document.getElementById('sort').addEventListener('change',(event)=>{state.sort=event.target.value;renderList()});document.getElementById('direction').addEventListener('click',(event)=>{state.direction*=-1;event.currentTarget.textContent=state.direction===-1?'↓':'↑';renderList()});document.getElementById('refresh').addEventListener('click',loadSessions);window.addEventListener('hashchange',()=>{const id=location.hash.slice(1);if(id&&id!==state.selected)selectSession(id)});loadSessions();
-</script>
+
+  <script>
+    'use strict';
+
+    const state = {
+      sessions: [],
+      selected: null,
+      sort: 'date',
+      direction: -1,
+      query: '',
+      request: 0,
+    };
+
+    const sessionList = document.getElementById('session-list');
+    const detail = document.getElementById('detail');
+    const resultCount = document.getElementById('result-count');
+
+    function createElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
+
+    function append(parent, tag, className, text) {
+      const element = createElement(tag, className, text);
+      parent.appendChild(element);
+      return element;
+    }
+
+    function addChip(parent, text, tone = '') {
+      return append(parent, 'span', 'chip ' + tone, text);
+    }
+
+    function compactPath(value) {
+      return (value || '')
+        .replace(/^\/home\/[^/]+/, '~')
+        .replace(/^\/Users\/[^/]+/, '~');
+    }
+
+    function truncate(value, limit = 96) {
+      const text = String(value || '');
+      return text.length > limit ? text.slice(0, limit - 1) + '…' : text;
+    }
+
+    function firstNonemptyLine(value) {
+      return String(value || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find(Boolean) || '';
+    }
+
+    function projectName(cwd) {
+      return compactPath(cwd).split('/').filter(Boolean).pop() || 'Unknown path';
+    }
+
+    function displayTitle(session) {
+      return truncate(
+        firstNonemptyLine(session.firstUserMessage) || projectName(session.cwd),
+        96,
+      );
+    }
+
+    function messagePreview(session) {
+      const text = String(session.firstUserMessage || 'No user message recorded')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return truncate(text, 180);
+    }
+
+    function short(value, size = 12) {
+      return truncate(String(value || ''), size);
+    }
+
+    function formatDate(value, compact = false) {
+      if (!value) return 'Unknown';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.valueOf())) return value;
+      if (compact) {
+        return parsed.toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: '2-digit',
+        });
+      }
+      return parsed.toLocaleString();
+    }
+
+    function formatDuration(milliseconds) {
+      if (milliseconds == null) return '—';
+      const seconds = Math.floor(milliseconds / 1000);
+      if (seconds < 60) return seconds + 's';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return minutes + 'm ' + (seconds % 60) + 's';
+      return Math.floor(minutes / 60) + 'h ' + (minutes % 60) + 'm';
+    }
+
+    function formatBytes(value) {
+      if (value == null) return '—';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let amount = value;
+      let unit = 0;
+      while (amount >= 1024 && unit < units.length - 1) {
+        amount /= 1024;
+        unit += 1;
+      }
+      return amount.toFixed(unit ? 1 : 0) + ' ' + units[unit];
+    }
+
+    function formatMoney(value) {
+      const amount = Number(value || 0);
+      return '$' + amount.toFixed(amount < 0.01 ? 4 : 2);
+    }
+
+    function totalCost(session) {
+      return Number((session.cost || {}).total || 0);
+    }
+
+    function totalTokens(session) {
+      return Number((session.usage || {}).totalTokens || 0);
+    }
+
+    function renderStats() {
+      const messages = state.sessions.reduce(
+        (total, session) => total + session.messageCount,
+        0,
+      );
+      const cost = state.sessions.reduce(
+        (total, session) => total + totalCost(session),
+        0,
+      );
+      const values = [
+        state.sessions.length.toLocaleString(),
+        messages.toLocaleString(),
+        formatMoney(cost),
+      ];
+
+      document.querySelectorAll('#stats strong').forEach((node, index) => {
+        node.textContent = values[index];
+      });
+    }
+
+    function visibleSessions() {
+      const query = state.query.trim().toLowerCase();
+      const sessions = state.sessions.filter((session) => {
+        const searchable = [
+          session.id,
+          session.cwd,
+          session.firstUserMessage,
+          (session.models || []).join(' '),
+          (session.thinkingModes || []).join(' '),
+        ].join(' ').toLowerCase();
+        return !query || searchable.includes(query);
+      });
+
+      sessions.sort((left, right) => {
+        const leftValue = state.sort === 'date'
+          ? left.timestamp
+          : state.sort === 'path'
+            ? left.cwd
+            : left.id;
+        const rightValue = state.sort === 'date'
+          ? right.timestamp
+          : state.sort === 'path'
+            ? right.cwd
+            : right.id;
+        return String(leftValue || '').localeCompare(
+          String(rightValue || ''),
+          undefined,
+          { numeric: true, sensitivity: 'base' },
+        ) * state.direction;
+      });
+
+      return sessions;
+    }
+
+    function renderSessionList() {
+      const sessions = visibleSessions();
+      resultCount.textContent = sessions.length + ' of ' + state.sessions.length;
+      sessionList.replaceChildren();
+
+      if (!sessions.length) {
+        append(sessionList, 'div', 'loading', 'No sessions match this search.');
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      for (const session of sessions) {
+        const button = createElement(
+          'button',
+          'session-card' + (session.id === state.selected ? ' active' : ''),
+        );
+        button.type = 'button';
+        button.addEventListener('click', () => selectSession(session.id));
+
+        const top = append(button, 'div', 'card-top');
+        append(top, 'div', 'card-title', projectName(session.cwd));
+        append(top, 'div', 'card-date', formatDate(session.timestamp, true));
+        append(button, 'div', 'preview', messagePreview(session));
+        append(button, 'div', 'path', compactPath(session.cwd));
+        append(button, 'div', 'session-id', session.id);
+
+        const metadata = append(button, 'div', 'card-meta');
+        addChip(metadata, session.messageCount + ' messages', 'blue');
+        if (session.models[0]) addChip(metadata, short(session.models[0], 28), 'mint');
+        if (totalCost(session)) addChip(metadata, formatMoney(totalCost(session)), 'amber');
+
+        fragment.appendChild(button);
+      }
+      sessionList.appendChild(fragment);
+    }
+
+    async function loadSessions() {
+      sessionList.replaceChildren(
+        createElement('div', 'loading', 'Scanning ~/.pi/agent/sessions…'),
+      );
+      resultCount.textContent = 'Loading…';
+
+      try {
+        const response = await fetch('/api/sessions');
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+
+        state.sessions = data.sessions;
+        renderStats();
+        renderSessionList();
+
+        const requested = location.hash.slice(1);
+        const first = (visibleSessions()[0] || {}).id;
+        if (requested && state.sessions.some((session) => session.id === requested)) {
+          await selectSession(requested);
+        } else if (first) {
+          await selectSession(first);
+        } else {
+          detail.replaceChildren(createElement('div', 'empty', 'No Pi sessions found.'));
+        }
+      } catch (error) {
+        sessionList.replaceChildren(createElement('div', 'loading error', error.message));
+        resultCount.textContent = 'Failed';
+      }
+    }
+
+    async function selectSession(id) {
+      state.selected = id;
+      renderSessionList();
+      history.replaceState(null, '', '#' + id);
+      const request = ++state.request;
+      detail.replaceChildren(
+        createElement('div', 'loading', 'Loading complete session…'),
+      );
+
+      try {
+        const response = await fetch('/api/session/' + encodeURIComponent(id));
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        if (request === state.request) renderDetail(data);
+      } catch (error) {
+        if (request === state.request) {
+          detail.replaceChildren(createElement('div', 'loading error', error.message));
+        }
+      }
+    }
+
+    function addFact(parent, label, value, title) {
+      const box = append(parent, 'div', 'fact');
+      append(box, 'span', '', label);
+      const strong = append(box, 'strong', '', value);
+      if (title) strong.title = title;
+    }
+
+    function indexToolCalls(events) {
+      const calls = new Map();
+      for (const event of events) {
+        const message = (event.record || {}).message || {};
+        if (!Array.isArray(message.content)) continue;
+        for (const item of message.content) {
+          if (item && item.type === 'toolCall' && item.id) calls.set(item.id, item);
+        }
+      }
+      return calls;
+    }
+
+    function renderDetail(data) {
+      const session = data.summary;
+      const toolCalls = indexToolCalls(data.events);
+      detail.replaceChildren();
+
+      const header = append(detail, 'header', 'detail-head');
+      append(
+        header,
+        'div',
+        'eyebrow',
+        'Session · ' + (session.version ? 'schema v' + session.version : 'unknown schema'),
+      );
+      append(header, 'h2', '', displayTitle(session));
+      append(header, 'div', 'detail-path', compactPath(session.cwd));
+
+      const facts = append(header, 'div', 'facts');
+      addFact(facts, 'Started', formatDate(session.timestamp), session.timestamp);
+      addFact(facts, 'Duration', formatDuration(session.durationMs));
+      addFact(facts, 'Events', session.eventCount.toLocaleString());
+      addFact(facts, 'Messages', session.messageCount.toLocaleString());
+      addFact(facts, 'Tokens', totalTokens(session).toLocaleString());
+      addFact(facts, 'Cost', formatMoney(totalCost(session)));
+
+      const extra = append(header, 'div', 'head-extra');
+      append(extra, 'div', 'source', session.id);
+      append(
+        extra,
+        'div',
+        'source',
+        session.fileDate + ' · ' + formatBytes(session.size) + ' · '
+          + compactPath(session.sourceFile),
+      );
+
+      const tags = append(extra, 'div', 'chips');
+      for (const model of session.models) addChip(tags, model, 'mint');
+      for (const mode of session.thinkingModes) addChip(tags, 'thinking: ' + mode, 'blue');
+      if (session.parentSession) addChip(tags, 'forked session', 'amber');
+      if (session.parseErrors) addChip(tags, session.parseErrors + ' parse errors', 'amber');
+
+      const timelineHeader = append(detail, 'div', 'timeline-head');
+      append(timelineHeader, 'h3', '', 'Complete event timeline');
+      append(
+        timelineHeader,
+        'div',
+        'session-id',
+        data.events.length + ' stored records',
+      );
+
+      const timeline = append(detail, 'section', 'timeline');
+      const fragment = document.createDocumentFragment();
+      data.events.forEach((event, index) => {
+        fragment.appendChild(renderEvent(event, index, toolCalls));
+      });
+      timeline.appendChild(fragment);
+    }
+
+    function eventLabel(record) {
+      if (record.type === 'message') {
+        return (record.message && record.message.role) || 'message';
+      }
+      return record.type || 'unknown';
+    }
+
+    function rawDetails(record) {
+      const details = createElement('details', 'raw');
+      append(details, 'summary', '', 'All stored fields · raw JSON');
+      details.addEventListener('toggle', () => {
+        if (!details.open || details.dataset.loaded) return;
+        append(details, 'pre', '', JSON.stringify(record, null, 2));
+        details.dataset.loaded = 'yes';
+      });
+      return details;
+    }
+
+    function renderEvent(event, index, toolCalls) {
+      const record = event.record || {};
+      const context = event.context || {};
+      const role = eventLabel(record);
+      const article = createElement(
+        'article',
+        'event ' + (record.type === 'message' ? role : 'special'),
+      );
+
+      const header = append(article, 'div', 'event-header');
+      append(header, 'div', 'event-role', role);
+      append(
+        header,
+        'div',
+        'event-time',
+        formatDate(record.timestamp) + ' · #' + (index + 1),
+      );
+
+      const metadata = append(article, 'div', 'micro');
+      addChip(
+        metadata,
+        'Model · ' + ([context.provider, context.model].filter(Boolean).join('/') || 'not set'),
+        'mint',
+      );
+      addChip(metadata, 'Thinking · ' + (context.thinking || 'not set'), 'blue');
+      if (record.id) addChip(metadata, 'ID · ' + short(record.id, 14));
+      if (record.parentId) addChip(metadata, 'Parent · ' + short(record.parentId, 14));
+
+      if (record.type === 'message') {
+        renderMessage(article, record.message || {}, toolCalls);
+      } else {
+        renderSpecialEvent(article, record);
+      }
+
+      article.appendChild(rawDetails(record));
+      return article;
+    }
+
+    function renderMessage(parent, message, toolCalls) {
+      if (message.role === 'toolResult') {
+        renderToolResult(parent, message, toolCalls);
+        return;
+      }
+
+      if (message.role === 'bashExecution') {
+        renderBashExecution(parent, message);
+        return;
+      }
+
+      renderContent(parent, message.content);
+      if (message.errorMessage) {
+        append(parent, 'div', 'message-error', message.errorMessage);
+      }
+      renderUsage(parent, message);
+    }
+
+    function renderUsage(parent, message) {
+      if (!message.usage) return;
+      const row = append(parent, 'div', 'chips');
+      if (message.usage.input != null) {
+        addChip(row, 'in ' + Number(message.usage.input).toLocaleString());
+      }
+      if (message.usage.output != null) {
+        addChip(row, 'out ' + Number(message.usage.output).toLocaleString());
+      }
+      if (message.usage.reasoning) {
+        addChip(row, 'reasoning ' + Number(message.usage.reasoning).toLocaleString());
+      }
+      if (message.usage.cacheRead) {
+        addChip(row, 'cache ' + Number(message.usage.cacheRead).toLocaleString());
+      }
+      if (message.usage.cost && message.usage.cost.total != null) {
+        addChip(row, formatMoney(message.usage.cost.total), 'amber');
+      }
+      if (message.stopReason) addChip(row, 'stop · ' + message.stopReason);
+    }
+
+    function normalizeArguments(value) {
+      if (value && typeof value === 'object') return value;
+      if (typeof value !== 'string') return {};
+      try {
+        return JSON.parse(value);
+      } catch {
+        return { value };
+      }
+    }
+
+    function simpleToolName(name) {
+      return String(name || 'tool').split('.').pop();
+    }
+
+    function toolPath(call) {
+      const argumentsValue = normalizeArguments((call || {}).arguments);
+      return argumentsValue.path || argumentsValue.file_path || '';
+    }
+
+    function toolSummary(call, fallbackName) {
+      const name = simpleToolName((call || {}).name || fallbackName);
+      const sourcePath = toolPath(call);
+      return [name, sourcePath ? compactPath(sourcePath) : ''].filter(Boolean).join(' · ');
+    }
+
+    function renderToolResult(parent, message, toolCalls) {
+      const call = toolCalls.get(message.toolCallId);
+      const details = append(
+        parent,
+        'details',
+        'tool-result' + (message.isError ? ' error' : ''),
+      );
+      append(
+        details,
+        'summary',
+        '',
+        'Result · ' + toolSummary(call, message.toolName)
+          + (message.isError ? ' · error' : ''),
+      );
+
+      details.addEventListener('toggle', () => {
+        if (!details.open || details.dataset.loaded) return;
+        const body = append(details, 'div', 'tool-body');
+        if (message.toolCallId) {
+          append(body, 'div', 'tool-path', 'Call ' + message.toolCallId);
+        }
+        renderToolOutput(body, message.content, call, message.toolName);
+        details.dataset.loaded = 'yes';
+      });
+    }
+
+    function renderBashExecution(parent, message) {
+      const details = append(parent, 'details', 'tool-result');
+      append(details, 'summary', '', '$ ' + truncate(message.command || 'Shell command', 120));
+      details.addEventListener('toggle', () => {
+        if (!details.open || details.dataset.loaded) return;
+        const body = append(details, 'div', 'tool-body');
+        renderCodeBlock(body, message.command || '', 'shell', 'Command');
+        renderCodeBlock(body, message.output || '', 'text', 'Output');
+        const metadata = append(body, 'div', 'chips');
+        if (message.exitCode != null) {
+          addChip(
+            metadata,
+            'exit ' + message.exitCode,
+            message.exitCode ? 'amber' : 'mint',
+          );
+        }
+        details.dataset.loaded = 'yes';
+      });
+    }
+
+    function renderToolOutput(parent, content, call, fallbackName) {
+      const name = simpleToolName((call || {}).name || fallbackName);
+      const sourcePath = toolPath(call);
+
+      if (['read', 'bash'].includes(name) && Array.isArray(content)) {
+        for (const item of content) {
+          if (item && item.type === 'text') {
+            renderCodeBlock(
+              parent,
+              item.text || '',
+              name === 'bash' ? 'text' : languageFromPath(sourcePath),
+              sourcePath ? compactPath(sourcePath) : name + ' output',
+            );
+          } else {
+            renderContent(parent, [item]);
+          }
+        }
+        return;
+      }
+
+      renderContent(parent, content);
+    }
+
+    function renderContent(parent, content) {
+      if (typeof content === 'string') {
+        renderRichText(parent, content);
+        return;
+      }
+      if (!Array.isArray(content)) return;
+
+      for (const item of content) {
+        if (!item || typeof item !== 'object') {
+          append(parent, 'div', 'text-content', String(item));
+        } else if (item.type === 'text') {
+          renderRichText(parent, item.text || '');
+        } else if (item.type === 'thinking') {
+          renderThinking(parent, item);
+        } else if (item.type === 'toolCall') {
+          renderToolCall(parent, item);
+        } else if (item.type === 'image') {
+          renderImage(parent, item);
+        } else {
+          renderCodeBlock(parent, JSON.stringify(item, null, 2), 'json', item.type || 'Data');
+        }
+      }
+    }
+
+    function renderRichText(parent, text) {
+      const fence = /```([^\r\n`]*)\r?\n([\s\S]*?)```/g;
+      let cursor = 0;
+      let match;
+
+      while ((match = fence.exec(text))) {
+        if (match.index > cursor) {
+          append(parent, 'div', 'text-content', text.slice(cursor, match.index));
+        }
+        renderCodeBlock(
+          parent,
+          match[2].replace(/\r?\n$/, ''),
+          match[1].trim() || 'text',
+          'Code',
+        );
+        cursor = fence.lastIndex;
+      }
+
+      if (cursor < text.length) {
+        append(parent, 'div', 'text-content', text.slice(cursor));
+      }
+    }
+
+    function renderThinking(parent, item) {
+      const details = append(parent, 'details', 'thinking');
+      append(details, 'summary', '', 'Thinking');
+      details.addEventListener('toggle', () => {
+        if (!details.open || details.dataset.loaded) return;
+        append(details, 'div', 'text-content', item.thinking || '');
+        details.dataset.loaded = 'yes';
+      });
+    }
+
+    function renderToolCall(parent, item) {
+      const details = append(parent, 'details', 'tool');
+      append(details, 'summary', '', 'Tool call · ' + toolSummary(item, item.name));
+      details.addEventListener('toggle', () => {
+        if (!details.open || details.dataset.loaded) return;
+        const body = append(details, 'div', 'tool-body');
+        if (item.id) append(body, 'div', 'tool-path', 'Call ' + item.id);
+        renderToolArguments(body, item);
+        details.dataset.loaded = 'yes';
+      });
+    }
+
+    function renderToolArguments(parent, call) {
+      const name = simpleToolName(call.name);
+      const argumentsValue = normalizeArguments(call.arguments);
+      const sourcePath = argumentsValue.path || argumentsValue.file_path || '';
+
+      if (sourcePath) {
+        append(parent, 'div', 'tool-path', compactPath(sourcePath));
+      }
+
+      if (name === 'write' && typeof argumentsValue.content === 'string') {
+        renderCodeBlock(
+          parent,
+          argumentsValue.content,
+          languageFromPath(sourcePath),
+          compactPath(sourcePath) || 'Written content',
+        );
+        return;
+      }
+
+      if (name === 'edit' && Array.isArray(argumentsValue.edits)) {
+        argumentsValue.edits.forEach((edit, index) => {
+          renderDiff(
+            parent,
+            edit.oldText || '',
+            edit.newText || '',
+            (compactPath(sourcePath) || 'Edit') + ' · change ' + (index + 1),
+          );
+        });
+        return;
+      }
+
+      if (name === 'read') {
+        const metadata = append(parent, 'div', 'chips');
+        if (argumentsValue.offset != null) {
+          addChip(metadata, 'from line ' + argumentsValue.offset);
+        }
+        if (argumentsValue.limit != null) {
+          addChip(metadata, 'limit ' + argumentsValue.limit + ' lines');
+        }
+        if (!metadata.childElementCount) {
+          append(parent, 'div', 'text-content', 'File contents are in the following result.');
+        }
+        return;
+      }
+
+      if (name === 'bash' && typeof argumentsValue.command === 'string') {
+        renderCodeBlock(parent, argumentsValue.command, 'shell', 'Command');
+        return;
+      }
+
+      renderCodeBlock(
+        parent,
+        JSON.stringify(argumentsValue, null, 2),
+        'json',
+        'Arguments',
+      );
+    }
+
+    function languageFromPath(sourcePath) {
+      const extension = String(sourcePath || '').split('.').pop().toLowerCase();
+      const languages = {
+        c: 'c',
+        cc: 'cpp',
+        cpp: 'cpp',
+        css: 'css',
+        go: 'go',
+        h: 'c',
+        hpp: 'cpp',
+        html: 'html',
+        java: 'java',
+        js: 'javascript',
+        json: 'json',
+        jsonl: 'jsonl',
+        jsx: 'jsx',
+        md: 'markdown',
+        odin: 'odin',
+        py: 'python',
+        rb: 'ruby',
+        rs: 'rust',
+        sh: 'shell',
+        sql: 'sql',
+        ts: 'typescript',
+        tsx: 'tsx',
+        yaml: 'yaml',
+        yml: 'yaml',
+        zig: 'zig',
+      };
+      return languages[extension] || 'text';
+    }
+
+    function renderCodeBlock(parent, source, language, label) {
+      const wrapper = append(parent, 'div', 'code-block');
+      const header = append(wrapper, 'div', 'code-header');
+      append(
+        header,
+        'span',
+        'code-header-label',
+        (label || 'Code') + ' · ' + (language || 'text'),
+      );
+
+      const copy = append(header, 'button', 'copy-button', 'Copy');
+      copy.type = 'button';
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(String(source || ''));
+          copy.textContent = 'Copied';
+          setTimeout(() => { copy.textContent = 'Copy'; }, 1200);
+        } catch {
+          copy.textContent = 'Unavailable';
+        }
+      });
+
+      append(wrapper, 'pre', 'code', String(source || ''));
+      return wrapper;
+    }
+
+    function renderDiff(parent, oldText, newText, label) {
+      const wrapper = append(parent, 'div', 'code-block');
+      const header = append(wrapper, 'div', 'code-header');
+      append(header, 'span', 'code-header-label', label + ' · diff');
+      const diff = append(wrapper, 'div', 'diff');
+
+      for (const line of String(oldText).split('\n')) {
+        append(diff, 'span', 'diff-line removed', '- ' + line);
+      }
+      for (const line of String(newText).split('\n')) {
+        append(diff, 'span', 'diff-line added', '+ ' + line);
+      }
+    }
+
+    function renderImage(parent, item) {
+      const safeTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+      if (!safeTypes.includes(item.mimeType) || !item.data) {
+        append(parent, 'div', 'text-content', 'Image · ' + (item.mimeType || 'unknown'));
+        return;
+      }
+      const image = append(parent, 'img', 'image');
+      image.alt = 'Session image';
+      image.loading = 'lazy';
+      image.src = 'data:' + item.mimeType + ';base64,' + item.data;
+    }
+
+    function renderSpecialEvent(parent, record) {
+      let title = record.type || 'Event';
+      let copy = '';
+
+      if (record.type === 'session') {
+        title = 'Session started';
+        copy = record.cwd || '';
+      } else if (record.type === 'model_change') {
+        title = 'Model changed';
+        copy = [record.provider, record.modelId].filter(Boolean).join('/');
+      } else if (record.type === 'thinking_level_change') {
+        title = 'Thinking mode changed';
+        copy = record.thinkingLevel || '';
+      } else if (record.type === 'compaction') {
+        title = 'Context compacted';
+        copy = record.summary || '';
+      } else if (record.type === 'custom') {
+        title = 'Custom event · ' + (record.customType || 'unknown');
+        copy = JSON.stringify(record.data, null, 2);
+      } else if (record.type === 'custom_message') {
+        title = 'Custom message · ' + (record.customType || 'unknown');
+        copy = typeof record.content === 'string'
+          ? record.content
+          : JSON.stringify(record.content, null, 2);
+      }
+
+      append(parent, 'div', 'special-title', title);
+      if (copy) append(parent, 'div', 'special-copy', copy);
+    }
+
+    document.getElementById('search').addEventListener('input', (event) => {
+      state.query = event.target.value;
+      renderSessionList();
+    });
+
+    document.getElementById('sort').addEventListener('change', (event) => {
+      state.sort = event.target.value;
+      renderSessionList();
+    });
+
+    document.getElementById('direction').addEventListener('click', (event) => {
+      state.direction *= -1;
+      event.currentTarget.textContent = state.direction === -1 ? '↓' : '↑';
+      renderSessionList();
+    });
+
+    document.getElementById('refresh').addEventListener('click', loadSessions);
+
+    window.addEventListener('hashchange', () => {
+      const id = location.hash.slice(1);
+      if (id && id !== state.selected) selectSession(id);
+    });
+
+    loadSessions();
+  </script>
 </body>
 </html>
