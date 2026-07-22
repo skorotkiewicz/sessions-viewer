@@ -119,21 +119,86 @@ function parseArguments(value) {
   }
 }
 
+function parseEmbeddedJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    let quoted = false;
+    let escaped = false;
+    let sanitized = '';
+    for (const character of value) {
+      const code = character.charCodeAt(0);
+      if (quoted && code < 32) {
+        sanitized += `\\u${code.toString(16).padStart(4, '0')}`;
+        escaped = false;
+        continue;
+      }
+      sanitized += character;
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\') {
+        escaped = true;
+      } else if (character === '"') {
+        quoted = !quoted;
+      }
+    }
+    return JSON.parse(sanitized);
+  }
+}
+
+function editArguments(args) {
+  let edits = args.edits;
+  if (typeof edits === 'string') {
+    try {
+      edits = parseEmbeddedJson(edits);
+    } catch {
+      edits = [];
+    }
+  }
+  if (!Array.isArray(edits)) {
+    const hasEdit = ['oldText', 'old_text', 'old', 'newText', 'new_text']
+      .some((key) => Object.prototype.hasOwnProperty.call(args, key));
+    edits = hasEdit ? [args] : [];
+  }
+  return edits.map((edit) => {
+    if (typeof edit !== 'string') return edit;
+    try {
+      return parseEmbeddedJson(edit);
+    } catch {
+      return { newText: edit };
+    }
+  });
+}
+
+function editText(edit, keys) {
+  const key = keys.find((name) => Object.prototype.hasOwnProperty.call(edit || {}, name));
+  const value = key ? edit[key] : '';
+  return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
 function toolCall(item) {
   const name = String(item.name || 'tool').split('.').pop();
   const args = parseArguments(item.arguments);
-  const sourcePath = args.path || args.file_path || '';
+  const sourcePath = args.path || args.file_path || args['"path"'] || '';
+  const edits = name === 'edit' ? editArguments(args) : [];
   let details;
 
   if (name === 'write' && typeof args.content === 'string') {
     details = [{ type: 'code', source: args.content, path: sourcePath, label: sourcePath }];
-  } else if (name === 'edit' && Array.isArray(args.edits)) {
-    details = args.edits.map((edit, index) => ({
+  } else if (name === 'edit' && edits.length) {
+    details = edits.map((edit, index) => ({
       type: 'diff',
-      oldText: edit.oldText || '',
-      newText: edit.newText || '',
+      oldText: editText(edit, ['oldText', 'old_text', 'old']),
+      newText: editText(edit, ['newText', 'new_text']),
       label: `${sourcePath || 'Edit'} · change ${index + 1}`,
     }));
+  } else if (name === 'edit' && typeof args.edits === 'string') {
+    details = [{
+      type: 'code',
+      source: args.edits,
+      language: 'json',
+      label: `${sourcePath || 'Edit'} · stored payload`,
+    }];
   } else if (name === 'read') {
     const fields = [
       args.offset != null && { label: 'From line', value: args.offset },

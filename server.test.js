@@ -117,12 +117,19 @@ test('normalizes harness-specific records into shared viewer primitives', () => 
     { type: 'model_change', provider: 'openai', modelId: 'model-a' },
     { type: 'message', message: { role: 'toolResult', toolCallId: 'call-pi', toolName: 'read', content: [{ type: 'text', text: 'file' }] } },
     { type: 'message', message: { role: 'bashExecution', command: 'npm test', output: 'ok', exitCode: 0 } },
+    { type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: 'call-edit', name: 'edit', arguments: { path: '/tmp/app.js', oldText: 'old();', newText: 'new();' } }] } },
   ]);
   assert.equal(piEvents[0].record.title, 'Session started');
   assert.equal(piEvents[1].record.title, 'Model changed');
   assert.equal(piEvents[2].record.message.role, 'tool');
   assert.equal(piEvents[2].record.message.content[0].type, 'toolResult');
   assert.equal(piEvents[3].record.message.content[0].type, 'command');
+  assert.deepEqual(piEvents[4].record.message.content[0].details[0], {
+    type: 'diff',
+    oldText: 'old();',
+    newText: 'new();',
+    label: '/tmp/app.js · change 1',
+  });
 
   const codexRecords = [
     { type: 'session_meta', payload: { id: 'codex-neutral', model_provider: 'openai' } },
