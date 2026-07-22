@@ -46,5 +46,8 @@ test('serves the embedded viewer', async (t) => {
   assert.equal(response.status, 200);
   assert.match(html, /Pi Sessions/);
   assert.match(html, /Session ID/);
-  assert.match(html, /Thinking/);
+  assert.match(html, /function displayTitle/);
+  assert.match(html, /function renderCodeBlock/);
+  assert.match(html, /function renderToolCall/);
+  assert.match(html, /function renderToolResult/);
 });
