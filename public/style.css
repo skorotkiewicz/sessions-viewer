@@ -401,6 +401,10 @@ button {
     border-left: 3px solid var(--mint);
 }
 
+.event.developer {
+    border-left: 3px solid #b6a6ff;
+}
+
 .event.toolResult,
 .event.bashExecution {
     background: #12171d;
@@ -468,6 +472,31 @@ button {
 
 .thinking > summary {
     color: var(--mint);
+}
+
+.context-block.instruction > summary {
+    color: var(--amber);
+}
+
+.context-block.warning > summary {
+    color: var(--red);
+}
+
+.context-block.context > summary,
+.record-details > summary {
+    color: var(--blue);
+}
+
+.context-block.command > summary {
+    color: var(--mint);
+}
+
+.context-body {
+    padding: 2px 0 4px;
+}
+
+.record-fields {
+    margin-top: 10px;
 }
 
 .tool > summary,

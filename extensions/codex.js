@@ -14,13 +14,53 @@ function valueText(value) {
     .join('\n');
 }
 
-function messageContent(content) {
-  if (!Array.isArray(content)) return [];
-  return content
+const CONTEXT_TAGS = {
+  'permissions instructions': ['Permissions instructions', 'instruction'],
+  collaboration_mode: ['Collaboration mode', 'instruction'],
+  skills_instructions: ['Skills instructions', 'instruction'],
+  plugins_instructions: ['Plugins instructions', 'instruction'],
+  multi_agent_mode: ['Multi-agent mode', 'instruction'],
+  apps_instructions: ['Apps instructions', 'instruction'],
+  personality_spec: ['Personality', 'instruction'],
+  model_switch: ['Model switch', 'instruction'],
+  turn_aborted: ['Turn aborted', 'warning'],
+  environment_context: ['Environment context', 'context'],
+  user_shell_command: ['User shell command', 'command'],
+  codex_internal_context: ['Active goal context', 'context'],
+  skill: ['Skill context', 'context'],
+  recommended_plugins: ['Recommended plugins', 'context'],
+  subagent_notification: ['Subagent notification', 'context'],
+  proposed_plan: ['Proposed plan', 'context'],
+};
+
+function contextContent(text, role) {
+  const source = String(text || '');
+  const match = source.match(
+    /^\s*<([a-z][\w-]*(?:\s+instructions)?)(?:\s[^>]*)?>\s*([\s\S]*?)\s*<\/\1>\s*$/i,
+  );
+  const context = match && CONTEXT_TAGS[match[1].toLowerCase()];
+  if (context) {
+    return { type: 'context', label: context[0], text: match[2], tone: context[1] };
+  }
+  if (role === 'developer') {
+    return {
+      type: 'context',
+      label: 'Developer instructions',
+      text: source,
+      tone: 'instruction',
+    };
+  }
+  return { type: 'text', text: source };
+}
+
+function messageContent(content, role) {
+  const items = Array.isArray(content) ? content : [content];
+  return items
     .map((item) => {
+      if (typeof item === 'string') return contextContent(item, role);
       if (!item || typeof item !== 'object') return null;
       if (item.type === 'input_text' || item.type === 'output_text') {
-        return { type: 'text', text: item.text || '' };
+        return contextContent(item.text, role);
       }
       return { ...item };
     })
@@ -46,9 +86,11 @@ function customArguments(payload) {
 function specialRecord(raw, title, summary = '') {
   return {
     type: 'codex_event',
+    variant: raw.payload?.type || raw.type,
     timestamp: raw.timestamp,
     title,
     summary,
+    display: payloadDisplay(raw),
     raw,
   };
 }
@@ -59,6 +101,7 @@ function outputText(value) {
 
 function eventSummary(payload) {
   if (payload.message) return outputText(payload.message);
+  if (payload.goal) return outputText(payload.goal);
   if (payload.command) {
     const command = Array.isArray(payload.command)
       ? payload.command.join(' ')
@@ -68,10 +111,65 @@ function eventSummary(payload) {
       : `${command}\nexit ${payload.exit_code}`;
   }
   if (payload.query) return outputText(payload.query);
+  if (payload.path) return outputText(payload.path);
+  if (payload.kind) {
+    return [payload.kind, payload.agent_path || payload.agent_thread_id]
+      .filter(Boolean)
+      .join(' · ');
+  }
   if (payload.status) return String(payload.status);
   if (payload.reason) return String(payload.reason);
+  if (payload.item?.type) return String(payload.item.type).replaceAll('_', ' ');
+  if (payload.changes) return `${Object.keys(payload.changes).length} changed files`;
+  if (payload.num_turns != null) return `${payload.num_turns} turns rolled back`;
   if (payload.duration_ms != null) return `${payload.duration_ms} ms`;
+  if (payload.full != null) return payload.full ? 'Full snapshot' : 'Incremental update';
   return '';
+}
+
+function payloadDisplay(raw) {
+  const payload = raw.payload || {};
+  const fields = [
+    ['Turn', payload.turn_id],
+    ['Call', payload.call_id],
+    ['Status', payload.status],
+    ['Reason', payload.reason],
+    ['Duration', payload.duration_ms == null ? null : `${payload.duration_ms} ms`],
+    ['Exit', payload.exit_code],
+    ['Model', payload.model],
+    ['Effort', payload.effort],
+    ['Approval', payload.approval_policy],
+    ['Permissions', payload.permission_profile],
+    ['Kind', payload.kind],
+    ['Agent', payload.agent_path || payload.agent_thread_id],
+    ['Path', payload.path],
+    ['Rolled back', payload.num_turns],
+    ['Context window', payload.model_context_window],
+  ]
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([label, value]) => ({ label, value: String(value) }));
+  const contexts = [
+    ['base_instructions', 'Base instructions'],
+    ['user_instructions', 'User instructions'],
+  ]
+    .filter(([key]) => typeof payload[key] === 'string' && payload[key])
+    .map(([key, label]) => ({
+      type: 'context',
+      label,
+      text: payload[key],
+      tone: 'instruction',
+    }));
+  const fieldCount = Object.keys(payload).filter((key) => key !== 'type').length;
+
+  return {
+    fields,
+    contexts,
+    details: fieldCount ? {
+      label: `Codex payload · ${fieldCount} fields`,
+      path: ['raw', 'payload'],
+      omit: ['type'],
+    } : null,
+  };
 }
 
 function normalizeRecords(records) {
@@ -134,6 +232,7 @@ function normalizeRecords(records) {
           timestamp: payload.timestamp || raw.timestamp,
           cwd: payload.cwd || '',
           parentSession: payload.forked_from_id || payload.parent_thread_id || null,
+          display: payloadDisplay(raw),
           raw,
         });
       } else {
@@ -166,7 +265,10 @@ function normalizeRecords(records) {
           timestamp: raw.timestamp,
           message: {
             role: payload.role || (payload.type === 'agent_message' ? 'assistant' : 'unknown'),
-            content: messageContent(payload.content),
+            content: messageContent(
+              payload.content,
+              payload.role || (payload.type === 'agent_message' ? 'assistant' : 'unknown'),
+            ),
             provider: active.provider,
             model: active.model,
             phase: payload.phase,
@@ -286,6 +388,20 @@ function normalizeRecords(records) {
       }
       if (payload.type === 'token_count' && index !== finalTokenIndex) return;
 
+      if (payload.type === 'turn_aborted') {
+        push({
+          type: 'turn_aborted',
+          timestamp: raw.timestamp,
+          turnId: payload.turn_id,
+          reason: payload.reason || 'aborted',
+          durationMs: payload.duration_ms,
+          completedAt: payload.completed_at,
+          display: payloadDisplay(raw),
+          raw,
+        });
+        return;
+      }
+
       if (payload.type === 'error') {
         push({
           type: 'message',
@@ -324,6 +440,7 @@ function normalizeRecords(records) {
         type: 'compaction',
         timestamp: raw.timestamp,
         summary: valueText(payload.message) || 'Context compacted',
+        display: payloadDisplay(raw),
         raw,
       });
       return;

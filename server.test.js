@@ -69,6 +69,42 @@ test('normalizes Codex sessions without duplicate messages or token overcounting
   assert.deepEqual(events[2].context, { provider: 'openai', model: 'gpt-test', thinking: 'xhigh' });
 });
 
+test('preserves Codex instructions, aborts, and event payloads semantically', () => {
+  const events = codex.normalizeRecords([
+    { timestamp: '2026-07-01T10:00:00.000Z', type: 'session_meta', payload: { id: 'codex-context', cwd: '/tmp/demo', model_provider: 'openai' } },
+    { timestamp: '2026-07-01T10:00:01.000Z', type: 'turn_context', payload: { turn_id: 'turn-1', model: 'gpt-test', effort: 'high', approval_policy: 'on-request', permission_profile: 'workspace', sandbox_policy: { type: 'workspace-write' } } },
+    { timestamp: '2026-07-01T10:00:02.000Z', type: 'response_item', payload: { type: 'message', role: 'developer', content: [{ type: 'input_text', text: '<permissions instructions>\nRead only\n</permissions instructions>' }] } },
+    { timestamp: '2026-07-01T10:00:03.000Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<turn_aborted>\nThe user interrupted the turn.\n</turn_aborted>' }] } },
+    { timestamp: '2026-07-01T10:00:04.000Z', type: 'event_msg', payload: { type: 'turn_aborted', turn_id: 'turn-1', reason: 'interrupted', duration_ms: 2500 } },
+    { timestamp: '2026-07-01T10:00:05.000Z', type: 'event_msg', payload: { type: 'thread_goal_updated', threadId: 'codex-context', goal: 'Ship it' } },
+  ]);
+
+  const permissions = events.find((event) => event.record.message?.role === 'developer');
+  assert.deepEqual(permissions.record.message.content[0], {
+    type: 'context',
+    label: 'Permissions instructions',
+    text: 'Read only',
+    tone: 'instruction',
+  });
+  const injectedAbort = events.find((event) =>
+    event.record.message?.content?.[0]?.label === 'Turn aborted');
+  assert.equal(injectedAbort.record.message.content[0].tone, 'warning');
+
+  const abort = events.find((event) => event.record.type === 'turn_aborted');
+  assert.equal(abort.record.reason, 'interrupted');
+  assert.equal(abort.record.durationMs, 2500);
+
+  const turnContext = events.find((event) => event.record.variant === 'turn_context');
+  assert.deepEqual(
+    turnContext.record.display.fields.find((field) => field.label === 'Approval'),
+    { label: 'Approval', value: 'on-request' },
+  );
+  assert.deepEqual(turnContext.record.display.details.path, ['raw', 'payload']);
+  const goal = events.find((event) => event.record.variant === 'thread_goal_updated');
+  assert.equal(goal.record.summary, 'Ship it');
+  assert.equal(goal.record.display.details.label, 'Codex payload · 2 fields');
+});
+
 test('serves the extension-aware viewer', async (t) => {
   const server = createServer({ root: '/unused' });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -89,6 +125,8 @@ test('serves the extension-aware viewer', async (t) => {
   assert.match(javascript, /function renderCodeBlock/);
   assert.match(javascript, /function renderToolCall/);
   assert.match(javascript, /function renderToolResult/);
+  assert.match(javascript, /function renderRecordDetails/);
+  assert.doesNotMatch(javascript, /renderCodexPayload|approval_policy|permission_profile/);
 
   const harnesses = await (await fetch('http://127.0.0.1:' + address.port + '/api/harnesses')).json();
   assert.deepEqual(harnesses.harnesses.map((harness) => harness.id), ['codex', 'pi']);

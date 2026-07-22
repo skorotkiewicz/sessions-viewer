@@ -418,7 +418,7 @@ function eventLabel(record) {
   if (record.type === 'message') {
     return (record.message && record.message.role) || 'message';
   }
-  return record.type || 'unknown';
+  return String(record.variant || record.type || 'unknown').replaceAll('_', ' ');
 }
 
 function rawDetails(record) {
@@ -622,12 +622,14 @@ function renderContent(parent, content) {
       renderRichText(parent, item.text || '');
     } else if (item.type === 'thinking') {
       renderThinking(parent, item);
+    } else if (item.type === 'context') {
+      renderContext(parent, item);
     } else if (item.type === 'toolCall') {
       renderToolCall(parent, item);
     } else if (item.type === 'image') {
       renderImage(parent, item);
     } else {
-      renderCodeBlock(parent, JSON.stringify(item, null, 2), 'json', item.type || 'Data');
+      renderDataContent(parent, item);
     }
   }
 }
@@ -661,6 +663,32 @@ function renderThinking(parent, item) {
   details.addEventListener('toggle', () => {
     if (!details.open || details.dataset.loaded) return;
     append(details, 'div', 'text-content', item.thinking || '');
+    details.dataset.loaded = 'yes';
+  });
+}
+
+function renderContext(parent, item) {
+  const details = append(parent, 'details', 'context-block ' + (item.tone || 'context'));
+  append(details, 'summary', '', item.label || 'Context');
+  details.addEventListener('toggle', () => {
+    if (!details.open || details.dataset.loaded) return;
+    const body = append(details, 'div', 'context-body');
+    renderRichText(body, item.text || '');
+    details.dataset.loaded = 'yes';
+  });
+}
+
+function renderDataContent(parent, item) {
+  const details = append(parent, 'details', 'data-content');
+  append(
+    details,
+    'summary',
+    '',
+    String(item.type || 'Data').replaceAll('_', ' '),
+  );
+  details.addEventListener('toggle', () => {
+    if (!details.open || details.dataset.loaded) return;
+    renderCodeBlock(details, JSON.stringify(item, null, 2), 'json', 'Stored content');
     details.dataset.loaded = 'yes';
   });
 }
@@ -848,6 +876,12 @@ function renderSpecialEvent(parent, record) {
   } else if (record.type === 'compaction') {
     title = 'Context compacted';
     copy = record.summary || '';
+  } else if (record.type === 'turn_aborted') {
+    title = 'Turn aborted';
+    copy = [
+      record.reason,
+      record.durationMs != null ? formatDuration(record.durationMs) : '',
+    ].filter(Boolean).join(' · ');
   } else if (record.type === 'custom') {
     title = 'Custom event · ' + (record.customType || 'unknown');
     copy = JSON.stringify(record.data, null, 2);
@@ -860,6 +894,42 @@ function renderSpecialEvent(parent, record) {
 
   append(parent, 'div', 'special-title', title);
   if (copy) append(parent, 'div', 'special-copy', copy);
+  renderRecordDetails(parent, record);
+}
+
+function valueAtPath(value, path) {
+  return (path || []).reduce(
+    (current, key) => current == null ? undefined : current[key],
+    value,
+  );
+}
+
+function renderRecordDetails(parent, record) {
+  const display = record.display;
+  if (!display) return;
+
+  if (display.fields && display.fields.length) {
+    const metadata = append(parent, 'div', 'chips record-fields');
+    for (const field of display.fields) {
+      addChip(metadata, field.label + ' · ' + compactPath(String(field.value)));
+    }
+  }
+
+  for (const context of display.contexts || []) renderContext(parent, context);
+
+  if (!display.details) return;
+  const details = append(parent, 'details', 'record-details');
+  append(details, 'summary', '', display.details.label || 'Stored details');
+  details.addEventListener('toggle', () => {
+    if (!details.open || details.dataset.loaded) return;
+    const source = valueAtPath(record, display.details.path);
+    const stored = source && typeof source === 'object' ? { ...source } : source;
+    for (const key of display.details.omit || []) {
+      if (stored && typeof stored === 'object') delete stored[key];
+    }
+    renderCodeBlock(details, JSON.stringify(stored, null, 2), 'json', 'Event details');
+    details.dataset.loaded = 'yes';
+  });
 }
 
 document.getElementById('search').addEventListener('input', (event) => {
