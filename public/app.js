@@ -747,6 +747,23 @@ function languageFromPath(sourcePath) {
   return languages[extension] || 'text';
 }
 
+function renderCodeSource(parent, source, language) {
+  if (language !== 'diff') {
+    parent.textContent = String(source || '');
+    return;
+  }
+
+  parent.classList.add('diff-code');
+  for (const line of String(source || '').split('\n')) {
+    let tone = '';
+    if (/^(---|\+\+\+) /.test(line)) tone = 'header';
+    else if (line.startsWith('+')) tone = 'added';
+    else if (line.startsWith('-')) tone = 'removed';
+    else if (line.startsWith('@@')) tone = 'hunk';
+    append(parent, 'span', 'diff-code-line ' + tone, line || ' ');
+  }
+}
+
 function renderCodeBlock(parent, source, language, label) {
   const wrapper = append(parent, 'div', 'code-block');
   const header = append(wrapper, 'div', 'code-header');
@@ -769,7 +786,8 @@ function renderCodeBlock(parent, source, language, label) {
     }
   });
 
-  append(wrapper, 'pre', 'code', String(source || ''));
+  const code = append(wrapper, 'pre', 'code');
+  renderCodeSource(code, source, language);
   return wrapper;
 }
 

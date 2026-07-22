@@ -573,6 +573,25 @@ button {
     white-space: pre;
 }
 
+.code.diff-code {
+    padding: 10px 0;
+}
+
+.diff-code-line {
+    display: block;
+    min-width: max-content;
+    padding: 0 14px;
+}
+
+.diff-code-line.header {
+    color: #9fb2c4;
+}
+
+.diff-code-line.hunk {
+    color: #8dc7ff;
+    background: #24486b33;
+}
+
 .diff {
     max-height: 620px;
     padding: 10px 0;
@@ -587,12 +606,14 @@ button {
     white-space: pre;
 }
 
-.diff-line.removed {
+.diff-line.removed,
+.diff-code-line.removed {
     color: #ffb1b5;
     background: #5d252533;
 }
 
-.diff-line.added {
+.diff-line.added,
+.diff-code-line.added {
     color: #a8efd4;
     background: #245d4933;
 }

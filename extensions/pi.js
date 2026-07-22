@@ -223,6 +223,16 @@ function toolCall(item) {
 
 function resultDetails(message, call) {
   const name = String(call?.name || message.toolName || '').split('.').pop();
+  if (name === 'edit') {
+    const diff = message.details?.patch || message.details?.diff;
+    if (diff) {
+      return [{
+        type: 'diff',
+        source: diff,
+        label: `${call?.path || 'Edit'} · applied diff`,
+      }, ...(message.content || [])];
+    }
+  }
   if (name === 'read') {
     return (message.content || []).map((item) => item?.type === 'text'
       ? { type: 'code', source: item.text || '', path: call?.path, label: call?.path || 'Output' }

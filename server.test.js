@@ -118,6 +118,7 @@ test('normalizes harness-specific records into shared viewer primitives', () => 
     { type: 'message', message: { role: 'toolResult', toolCallId: 'call-pi', toolName: 'read', content: [{ type: 'text', text: 'file' }] } },
     { type: 'message', message: { role: 'bashExecution', command: 'npm test', output: 'ok', exitCode: 0 } },
     { type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: 'call-edit', name: 'edit', arguments: { path: '/tmp/app.js', oldText: 'old();', newText: 'new();' } }] } },
+    { type: 'message', message: { role: 'toolResult', toolCallId: 'call-edit', toolName: 'edit', content: [{ type: 'text', text: 'Successfully replaced 1 block.' }], details: { diff: '+new();', patch: '--- /tmp/app.js\n+++ /tmp/app.js\n@@ -1 +1 @@\n-old();\n+new();\n' } } },
   ]);
   assert.equal(piEvents[0].record.title, 'Session started');
   assert.equal(piEvents[1].record.title, 'Model changed');
@@ -130,6 +131,14 @@ test('normalizes harness-specific records into shared viewer primitives', () => 
     newText: 'new();',
     label: '/tmp/app.js · change 1',
   });
+  assert.deepEqual(piEvents[5].record.message.content[0].details, [
+    {
+      type: 'diff',
+      source: '--- /tmp/app.js\n+++ /tmp/app.js\n@@ -1 +1 @@\n-old();\n+new();\n',
+      label: '/tmp/app.js · applied diff',
+    },
+    { type: 'text', text: 'Successfully replaced 1 block.' },
+  ]);
 
   const codexRecords = [
     { type: 'session_meta', payload: { id: 'codex-neutral', model_provider: 'openai' } },
