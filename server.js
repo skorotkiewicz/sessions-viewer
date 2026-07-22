@@ -9,6 +9,7 @@ const HOST = '127.0.0.1';
 const PORT = Number(process.env.PORT || 4173);
 const SESSION_ROOT = expandHome(process.env.PI_SESSIONS_DIR || '~/.pi/agent/sessions');
 const PAGE_FILE = path.join(__dirname, 'page.html');
+const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#111923"/><text x="32" y="45" text-anchor="middle" font-family="Georgia,serif" font-size="42" fill="#70e1bd">π</text></svg>';
 
 function expandHome(value) {
   return value === '~' ? os.homedir() : value.startsWith('~/') ? path.join(os.homedir(), value.slice(2)) : path.resolve(value);
@@ -207,6 +208,7 @@ function createServer({ root = SESSION_ROOT } = {}) {
       const url = new URL(req.url, 'http://localhost');
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Method not allowed' });
       if (url.pathname === '/') return send(res, 200, await fs.readFile(PAGE_FILE, 'utf8'), 'text/html; charset=utf-8');
+      if (url.pathname === '/favicon.svg') return send(res, 200, FAVICON, 'image/svg+xml');
       if (url.pathname === '/api/sessions') {
         const scan = await scanSessions(root);
         filesById = scan.filesById;
