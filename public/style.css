@@ -63,11 +63,19 @@ button {
     height: 48px;
     place-items: center;
     color: var(--mint);
-    font: 700 28px Georgia, serif;
+    font-size: 0;
     background: linear-gradient(145deg, #18313a, #111923);
     border: 1px solid #4c6a70;
     border-radius: 15px;
     box-shadow: 0 10px 30px #0005;
+}
+
+.mark::before {
+    width: 15px;
+    height: 15px;
+    content: "";
+    border: 2px solid currentColor;
+    transform: rotate(45deg);
 }
 
 .eyebrow {
