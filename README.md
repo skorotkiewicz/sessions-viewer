@@ -4,6 +4,8 @@ A local, read-only web viewer for [Pi](https://github.com/badlogic/pi-mono) agen
 
 It scans `~/.pi/agent/sessions`, builds a searchable session index, and renders complete JSONL timelines without uploading data or installing dependencies.
 
+![Pi Sessions showing parsed code, model metadata, and tool results](docs/pi-sessions.png)
+
 ## Features
 
 - Search sessions by prompt, path, session ID, model, or thinking mode
