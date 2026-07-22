@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const codex = require('./extensions/codex');
 const { contextualize, createServer, parseJsonl, summarizeRecords } = require('./server');
 
 const records = [
@@ -36,7 +37,39 @@ test('parses and summarizes Pi JSONL with model/thinking context', () => {
   assert.deepEqual(events[4].context, { provider: 'openai', model: 'gpt-test', thinking: 'high' });
 });
 
-test('serves the embedded viewer', async (t) => {
+test('normalizes Codex sessions without duplicate messages or token overcounting', () => {
+  const codexRecords = [
+    { timestamp: '2026-07-01T10:00:00.000Z', type: 'session_meta', payload: { id: 'codex-id', timestamp: '2026-07-01T10:00:00.000Z', cwd: '/home/mod/Dev/codex-demo', model_provider: 'openai', cli_version: '1.0.0' } },
+    { timestamp: '2026-07-01T10:00:01.000Z', type: 'turn_context', payload: { model: 'gpt-test', effort: 'xhigh' } },
+    { timestamp: '2026-07-01T10:00:02.000Z', type: 'event_msg', payload: { type: 'user_message', message: 'Build it' } },
+    { timestamp: '2026-07-01T10:00:02.000Z', type: 'response_item', payload: { type: 'message', id: 'user-1', role: 'user', content: [{ type: 'input_text', text: 'Build it' }] } },
+    { timestamp: '2026-07-01T10:00:03.000Z', type: 'response_item', payload: { type: 'function_call', call_id: 'call-1', name: 'exec_command', arguments: '{"cmd":"ls"}' } },
+    { timestamp: '2026-07-01T10:00:04.000Z', type: 'response_item', payload: { type: 'function_call_output', call_id: 'call-1', output: 'README.md' } },
+    { timestamp: '2026-07-01T10:00:04.500Z', type: 'event_msg', payload: { type: 'agent_message', message: 'Only in the event stream' } },
+    { timestamp: '2026-07-01T10:00:05.000Z', type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: { input_tokens: 10, output_tokens: 5, cached_input_tokens: 2, reasoning_output_tokens: 1, total_tokens: 15 } } } },
+    { timestamp: '2026-07-01T10:00:06.000Z', type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: { input_tokens: 20, output_tokens: 8, cached_input_tokens: 4, reasoning_output_tokens: 2, total_tokens: 28 } } } },
+  ];
+
+  const events = codex.normalizeRecords(codexRecords);
+  const summary = codex.summarizeRecords(
+    codexRecords,
+    '/tmp/rollout-2026-07-01T10-00-00-codex-id.jsonl',
+    { size: 123, mtime: new Date('2026-07-01T10:00:06Z') },
+    events,
+  );
+
+  assert.equal(events.filter((event) => event.record.message?.role === 'user').length, 1);
+  assert.equal(summary.firstUserMessage, 'Build it');
+  assert.deepEqual(summary.models, ['openai/gpt-test']);
+  assert.deepEqual(summary.thinkingModes, ['xhigh']);
+  assert.equal(summary.usage.totalTokens, 28);
+  assert.equal(summary.toolCalls, 1);
+  assert(events.some((event) => event.record.message?.content?.[0]?.text === 'Only in the event stream'));
+  assert.equal(events.find((event) => event.record.message?.role === 'toolResult').record.message.toolName, 'exec_command');
+  assert.deepEqual(events[2].context, { provider: 'openai', model: 'gpt-test', thinking: 'xhigh' });
+});
+
+test('serves the extension-aware viewer', async (t) => {
   const server = createServer({ root: '/unused' });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(() => server.close());
@@ -44,10 +77,23 @@ test('serves the embedded viewer', async (t) => {
   const response = await fetch('http://127.0.0.1:' + address.port + '/');
   const html = await response.text();
   assert.equal(response.status, 200);
-  assert.match(html, /Pi Sessions/);
+  assert.match(html, /Session Viewer/);
+  assert.match(html, /id="harness"/);
   assert.match(html, /Session ID/);
-  assert.match(html, /function displayTitle/);
-  assert.match(html, /function renderCodeBlock/);
-  assert.match(html, /function renderToolCall/);
-  assert.match(html, /function renderToolResult/);
+  assert.match(html, /src="\/app.js"/);
+
+  const application = await fetch('http://127.0.0.1:' + address.port + '/app.js');
+  const javascript = await application.text();
+  assert.equal(application.status, 200);
+  assert.match(javascript, /function displayTitle/);
+  assert.match(javascript, /function renderCodeBlock/);
+  assert.match(javascript, /function renderToolCall/);
+  assert.match(javascript, /function renderToolResult/);
+
+  const harnesses = await (await fetch('http://127.0.0.1:' + address.port + '/api/harnesses')).json();
+  assert.deepEqual(harnesses.harnesses.map((harness) => harness.id), ['codex', 'pi']);
+
+  const stylesheet = await fetch('http://127.0.0.1:' + address.port + '/style.css');
+  assert.equal(stylesheet.status, 200);
+  assert.match(await stylesheet.text(), /--background/);
 });
